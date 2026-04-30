@@ -1,0 +1,13 @@
+{
+  "theme": "light",
+  "auto_start": false,
+  "show_notification": false,
+  "run_as_admin": false,
+  "ai_models": [],
+  "proxy_enabled": false,
+  "proxy_address": "127.0.0.1",
+  "proxy_port": "7890",
+  "proxy_username": "",
+  "proxy_password": "",
+  "custom_scan_dirs": []
+}

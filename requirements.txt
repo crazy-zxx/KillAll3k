@@ -1,0 +1,8 @@
+rapidfuzz
+pypinyin
+PyQt6
+pystray
+Pillow
+keyboard
+requests
+pywin32
