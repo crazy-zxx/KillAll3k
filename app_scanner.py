@@ -17,6 +17,10 @@ class AppScanner:
         self.apps: List[Dict] = []
         self.processed_apps = []
         self.settings_manager = settings_manager
+        self.exclude_keywords = [
+            'uninstall', '卸载', 'setup', '安装', 'install',
+            'unins', 'uninst', 'setup.exe', 'installer'
+        ]
         self.scan_all_apps()
     
     def scan_all_apps(self):
@@ -35,6 +39,9 @@ class AppScanner:
         
         # 去重
         self.remove_duplicates()
+        
+        # 过滤卸载、安装类应用
+        self.filter_excluded_apps()
         
         # 预处理应用数据，添加拼音
         for app in self.apps:
@@ -99,14 +106,12 @@ class AppScanner:
                     self.scan_directory(item_path, recursive=True, max_depth=max_depth, current_depth=current_depth + 1)
                 elif item.lower().endswith('.lnk'):
                     try:
-                        app_path = self.resolve_lnk(item_path)
-                        if app_path and os.path.exists(app_path):
-                            self.apps.append({
-                                'name': os.path.splitext(item)[0],
-                                'path': app_path,
-                                'icon': item_path,
-                                'type': 'shortcut'
-                            })
+                        self.apps.append({
+                            'name': os.path.splitext(item)[0],
+                            'path': item_path,
+                            'icon': item_path,
+                            'type': 'shortcut'
+                        })
                     except Exception:
                         pass
                 elif item.lower().endswith('.exe'):
@@ -121,46 +126,6 @@ class AppScanner:
                         pass
         except Exception:
             pass
-    
-    def resolve_lnk(self, shortcut_path):
-        """解析快捷方式"""
-        try:
-            import pythoncom
-            from win32com.shell import shell
-            link = pythoncom.CoCreateInstance(
-                shell.CLSID_ShellLink,
-                None,
-                pythoncom.CLSCTX_INPROC_SERVER,
-                shell.IID_IShellLink
-            )
-            link.QueryInterface(pythoncom.IID_IPersistFile).Load(shortcut_path)
-            target, _ = link.GetPath(0)
-            return target
-        except ImportError:
-            try:
-                # 备用方法：使用 wscript
-                import tempfile
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.vbs', delete=False, encoding='utf-8') as f:
-                    f.write(f'''
-Set WshShell = CreateObject("WScript.Shell")
-Set shortcut = WshShell.CreateShortcut("{shortcut_path}")
-WScript.Echo shortcut.TargetPath
-''')
-                    temp_file = f.name
-                result = subprocess.run(
-                    ['cscript', '//NoLogo', temp_file],
-                    capture_output=True,
-                    text=True,
-                    timeout=2
-                )
-                os.unlink(temp_file)
-                if result.returncode == 0:
-                    return result.stdout.strip()
-            except Exception:
-                pass
-        except Exception:
-            pass
-        return None
     
     def scan_registry_apps(self):
         """从注册表扫描已安装的应用"""
@@ -249,16 +214,30 @@ WScript.Echo shortcut.TargetPath
             pass
         return None
     
+    def is_excluded(self, app):
+        """检查应用是否应该被排除（卸载、安装程序）"""
+        name_lower = app['name'].lower()
+        path_lower = app['path'].lower()
+        
+        for keyword in self.exclude_keywords:
+            if keyword in name_lower or keyword in path_lower:
+                return True
+        return False
+    
     def remove_duplicates(self):
         """移除重复的应用"""
         seen = set()
         unique_apps = []
         for app in self.apps:
-            key = (app['name'].lower(), app['path'].lower())
+            key = app['name'].lower()
             if key not in seen:
                 seen.add(key)
                 unique_apps.append(app)
         self.apps = unique_apps
+    
+    def filter_excluded_apps(self):
+        """过滤掉卸载、安装类应用"""
+        self.apps = [app for app in self.apps if not self.is_excluded(app)]
     
     def search_apps(self, keyword):
         """模糊搜索应用"""
