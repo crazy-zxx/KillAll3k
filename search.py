@@ -14,6 +14,7 @@ from rapidfuzz import fuzz
 from settings import (
     SignalHandler, SettingsManager, ThemeManager, AutoStartManager, SettingsWindow
 )
+from clipboard_window import ClipboardWindow
 from app_scanner import AppScanner
 from file_search import EverythingSearch
 
@@ -33,6 +34,7 @@ class SearchWindow(QWidget):
         self.drag_pos = None
         self.tray_icon = None
         self.settings_window = None
+        self.clipboard_window = None
         self.settings_manager = SettingsManager()
         self.theme_manager = ThemeManager(None)
         self.auto_start_manager = AutoStartManager()
@@ -49,6 +51,7 @@ class SearchWindow(QWidget):
         self.signal_handler.toggle_window.connect(self.toggle_window)
         self.signal_handler.show_window.connect(self.show_window)
         self.signal_handler.show_settings.connect(self.show_settings)
+        self.signal_handler.show_clipboard.connect(self.show_clipboard)
         self.signal_handler.quit_app.connect(self.safe_quit)
         self.signal_handler.theme_changed.connect(self.on_theme_changed)
         
@@ -472,6 +475,17 @@ class SearchWindow(QWidget):
         self.settings_window.show()
         self.settings_window.activateWindow()
     
+    def show_clipboard(self):
+        if not self.clipboard_window:
+            self.clipboard_window = ClipboardWindow(
+                self.settings_manager,
+                self.theme_manager,
+                self.signal_handler
+            )
+        self.clipboard_window.show()
+        self.clipboard_window.activateWindow()
+        self.clipboard_window.raise_()
+    
     def on_theme_changed(self, theme):
         self.update_search_input_style()
         self.update_app_list_style()
@@ -489,6 +503,7 @@ class SearchWindow(QWidget):
         icon_image = self.create_tray_icon()
         menu = pystray.Menu(
             pystray.MenuItem('显示窗口', self.on_tray_show, default=True),
+            pystray.MenuItem('剪贴板历史', self.on_tray_clipboard),
             pystray.MenuItem('设置', self.on_tray_settings),
             pystray.MenuItem('退出', self.on_tray_quit)
         )
@@ -505,9 +520,20 @@ class SearchWindow(QWidget):
     
     def setup_hotkey(self):
         keyboard.add_hotkey('alt+space', lambda: self.signal_handler.toggle_window.emit(), suppress=True)
+        
+        # 添加剪贴板快捷键
+        clipboard_hotkey = self.settings_manager.get('clipboard_hotkey', 'win+v')
+        if clipboard_hotkey:
+            try:
+                keyboard.add_hotkey(clipboard_hotkey, lambda: self.signal_handler.show_clipboard.emit(), suppress=True)
+            except Exception as e:
+                print(f"Failed to add clipboard hotkey: {e}")
     
     def on_tray_show(self, icon, item):
         self.signal_handler.show_window.emit()
+    
+    def on_tray_clipboard(self, icon, item):
+        self.signal_handler.show_clipboard.emit()
     
     def on_tray_settings(self, icon, item):
         self.signal_handler.show_settings.emit()

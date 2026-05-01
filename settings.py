@@ -17,6 +17,7 @@ class SignalHandler(QObject):
     toggle_window = pyqtSignal()
     show_window = pyqtSignal()
     show_settings = pyqtSignal()
+    show_clipboard = pyqtSignal()
     quit_app = pyqtSignal()
     theme_changed = pyqtSignal(str)
 
@@ -41,7 +42,10 @@ class SettingsManager:
             'max_file_results': 30,
             'max_app_results': 20,
             'everything_path': '',
-            'everything_dll_path': ''
+            'everything_dll_path': '',
+            'clipboard_enabled': True,
+            'clipboard_history_limit': 0,
+            'clipboard_hotkey': 'win+v'
         }
         self.settings = self.load_settings()
     
@@ -323,11 +327,13 @@ class SettingsWindow(QWidget):
         item3 = QListWidgetItem("🤖 AI 模型配置")
         item4 = QListWidgetItem("🚀 启动程序扫描")
         item5 = QListWidgetItem("📁 文件搜索设置")
+        item6 = QListWidgetItem("📋 剪贴板设置")
         sidebar.addItem(item1)
         sidebar.addItem(item2)
         sidebar.addItem(item3)
         sidebar.addItem(item4)
         sidebar.addItem(item5)
+        sidebar.addItem(item6)
         sidebar.setCurrentRow(0)
         sidebar.currentRowChanged.connect(self.switch_page)
         
@@ -338,6 +344,7 @@ class SettingsWindow(QWidget):
         self.stacked_widget.addWidget(self.create_ai_settings_page())
         self.stacked_widget.addWidget(self.create_scan_settings_page())
         self.stacked_widget.addWidget(self.create_file_search_settings_page())
+        self.stacked_widget.addWidget(self.create_clipboard_settings_page())
         
         main_layout.addWidget(sidebar)
         main_layout.addWidget(self.stacked_widget, 1)
@@ -1006,6 +1013,8 @@ class SettingsWindow(QWidget):
         # 当切换到文件搜索设置页面时（索引为4），重新从配置文件加载
         elif index == 4:
             self.load_file_search_settings()
+        elif index == 5:
+            self.load_clipboard_settings()
     
     def on_theme_changed(self, index):
         theme = ['auto', 'light', 'dark'][index]
@@ -1632,3 +1641,123 @@ class SettingsWindow(QWidget):
             self.settings_manager.set('max_file_results', 30)
         
         QMessageBox.information(self, "成功", "文件搜索配置已保存！")
+    
+    def create_clipboard_settings_page(self):
+        page = QWidget()
+        layout = QVBoxLayout()
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(20)
+        
+        title = QLabel("剪贴板设置")
+        title.setFont(QFont("Microsoft YaHei", 16, QFont.Weight.Bold))
+        layout.addWidget(title)
+        
+        # 启用剪贴板功能
+        enable_group = QGroupBox("功能设置")
+        enable_layout = QVBoxLayout()
+        enable_layout.setSpacing(15)
+        
+        self.clipboard_enabled_check = QCheckBox("启用剪贴板历史记录")
+        self.clipboard_enabled_check.setStyleSheet("QCheckBox { font-size: 14px; padding: 5px; }")
+        enable_layout.addWidget(self.clipboard_enabled_check)
+        
+        enable_group.setLayout(enable_layout)
+        layout.addWidget(enable_group)
+        
+        # 快捷键设置
+        hotkey_group = QGroupBox("快捷键设置")
+        hotkey_layout = QFormLayout()
+        hotkey_layout.setSpacing(15)
+        
+        self.clipboard_hotkey_input = QLineEdit()
+        self.clipboard_hotkey_input.setPlaceholderText("例如：win+v, ctrl+alt+v")
+        self.clipboard_hotkey_input.setStyleSheet("""
+            QLineEdit {
+                padding: 8px 12px;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                background-color: white;
+            }
+        """)
+        
+        hotkey_layout.addRow("显示剪贴板历史：", self.clipboard_hotkey_input)
+        
+        hotkey_group.setLayout(hotkey_layout)
+        layout.addWidget(hotkey_group)
+        
+        # 历史记录数量限制
+        limit_group = QGroupBox("历史记录设置")
+        limit_layout = QFormLayout()
+        limit_layout.setSpacing(15)
+        
+        self.clipboard_history_limit_combo = QComboBox()
+        self.clipboard_history_limit_combo.addItems([
+            "无限制",
+            "100 条",
+            "500 条",
+            "1000 条"
+        ])
+        self.clipboard_history_limit_combo.setStyleSheet("""
+            QComboBox {
+                padding: 8px 12px;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                background-color: white;
+                min-height: 30px;
+            }
+        """)
+        
+        limit_layout.addRow("最大历史记录数：", self.clipboard_history_limit_combo)
+        
+        limit_group.setLayout(limit_layout)
+        layout.addWidget(limit_group)
+        
+        # 保存按钮
+        save_btn = QPushButton("💾 保存剪贴板设置")
+        save_btn.clicked.connect(self.save_clipboard_settings)
+        save_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0ea5e9;
+                color: white;
+                padding: 12px 20px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #0284c7;
+            }
+            QPushButton:pressed {
+                background-color: #0369a1;
+            }
+        """)
+        layout.addWidget(save_btn)
+        
+        layout.addStretch()
+        page.setLayout(layout)
+        return page
+    
+    def load_clipboard_settings(self):
+        self.clipboard_enabled_check.setChecked(self.settings_manager.get('clipboard_enabled', True))
+        self.clipboard_hotkey_input.setText(self.settings_manager.get('clipboard_hotkey', 'win+v'))
+        
+        limit = self.settings_manager.get('clipboard_history_limit', 0)
+        if limit == 0:
+            self.clipboard_history_limit_combo.setCurrentIndex(0)
+        elif limit == 100:
+            self.clipboard_history_limit_combo.setCurrentIndex(1)
+        elif limit == 500:
+            self.clipboard_history_limit_combo.setCurrentIndex(2)
+        elif limit == 1000:
+            self.clipboard_history_limit_combo.setCurrentIndex(3)
+    
+    def save_clipboard_settings(self):
+        self.settings_manager.set('clipboard_enabled', self.clipboard_enabled_check.isChecked())
+        self.settings_manager.set('clipboard_hotkey', self.clipboard_hotkey_input.text().strip())
+        
+        limit_index = self.clipboard_history_limit_combo.currentIndex()
+        limits = [0, 100, 500, 1000]
+        self.settings_manager.set('clipboard_history_limit', limits[limit_index])
+        
+        QMessageBox.information(self, "成功", "剪贴板设置已保存！")

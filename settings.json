@@ -3,7 +3,15 @@
   "auto_start": false,
   "show_notification": false,
   "run_as_admin": false,
-  "ai_models": [],
+  "ai_models": [
+    {
+      "name": "硅基流动",
+      "api_url": "https://api.siliconflow.cn/v1/chat/completions",
+      "api_key": "sk-rnjtoowowhrmjglpgdqkqbefjyriecdjieqieapprhsbbesf",
+      "model": "deepseek-ai/DeepSeek-V3.2",
+      "enabled": true
+    }
+  ],
   "proxy_enabled": false,
   "proxy_address": "127.0.0.1",
   "proxy_port": "7890",
@@ -49,5 +57,8 @@
   "max_file_results": 30,
   "max_app_results": 20,
   "everything_path": "D:/GreenApps/Everything/Everything.exe",
-  "everything_dll_path": "D:/GreenApps/Everything/Everything64.dll"
+  "everything_dll_path": "D:/GreenApps/Everything/Everything64.dll",
+  "clipboard_enabled": true,
+  "clipboard_history_limit": 0,
+  "clipboard_hotkey": "win+v"
 }
