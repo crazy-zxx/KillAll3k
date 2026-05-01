@@ -10,10 +10,12 @@ from PyQt6.QtGui import QPainter, QBrush, QColor
 import pystray
 from PIL import Image, ImageDraw
 import keyboard
+from rapidfuzz import fuzz
 from settings import (
     SignalHandler, SettingsManager, ThemeManager, AutoStartManager, SettingsWindow
 )
 from app_scanner import AppScanner
+from file_search import EverythingSearch
 
 try:
     import win32api
@@ -37,6 +39,7 @@ class SearchWindow(QWidget):
         self.signal_handler = SignalHandler()
         self.theme_manager.signal_handler = self.signal_handler
         self.app_scanner = AppScanner(self.settings_manager)
+        self.file_searcher = EverythingSearch(self.settings_manager)
         self.search_results = []
         self.selected_index = 0
         
@@ -221,13 +224,53 @@ class SearchWindow(QWidget):
         keyword = keyword.strip()
         
         if keyword:
-            self.search_results = self.app_scanner.search_apps(keyword)
+            # 搜索应用（带分数）
+            max_app_results = self.settings_manager.get('max_app_results', 20)
+            app_results_with_scores = self.app_scanner.search_apps(keyword, with_scores=True)
+            app_results_with_scores = app_results_with_scores[:max_app_results]
+            
+            # 搜索文件
+            file_results = []
+            if self.settings_manager.get('enable_file_search', True):
+                max_file_results = self.settings_manager.get('max_file_results', 30)
+                file_results = self.file_searcher.search(keyword, max_file_results)
+                if not file_results:
+                    file_results = self.file_searcher.search_fallback(keyword, max_file_results)
+
+            # 合并并智能排序
+            self.search_results = self.merge_and_sort_results(keyword, app_results_with_scores, file_results)
             self.update_app_list()
         else:
             self.search_results = []
             self.app_list.clear()
             self.app_list.hide()
             self.adjust_window_size()
+    
+    def merge_and_sort_results(self, keyword, app_results_with_scores, file_results):
+        """合并应用和文件搜索结果，并智能排序"""
+        combined = []
+        
+        # 应用结果：使用从 app_scanner 获得的原始分数
+        for item in app_results_with_scores:
+            app = item['app']
+            app['type'] = 'app'
+            app['result_name'] = app['name']
+            app['score'] = item['score']
+            combined.append(app)
+        
+        # 文件结果：直接使用从 file_searcher 获得的分数
+        for file in file_results:
+            file['type'] = 'file'
+            file['result_name'] = file['name']
+            # 文件的分数已经在 file_search.py 中计算好了，直接使用
+            # 注意：应用有 +100 的优先加分，我们需要给应用加回来
+            # 但文件不需要这个加分，保持原样即可
+            combined.append(file)
+        
+        # 排序：首先按分数降序，同样分数时应用（0）排在文件（1）前面
+        combined.sort(key=lambda x: (-x['score'], 0 if x['type'] == 'app' else 1))
+        
+        return combined
     
     def update_app_list(self):
         self.app_list.clear()
@@ -237,13 +280,24 @@ class SearchWindow(QWidget):
             self.adjust_window_size()
             return
         
-        for idx, app in enumerate(self.search_results):
-            item = QListWidgetItem(app['name'])
-            item.setData(Qt.ItemDataRole.UserRole, app)
+        for idx, item_data in enumerate(self.search_results):
+            # 构建显示文本
+            display_text = item_data['name']
+            if item_data.get('type') == 'file':
+                # 对于文件，添加路径提示
+                dir_path = item_data.get('dir_path', '')
+                if dir_path:
+                    # 只显示路径的最后部分
+                    short_dir = os.path.basename(dir_path)
+                    if short_dir:
+                        display_text = f"{display_text}  ({short_dir})"
+            
+            item = QListWidgetItem(display_text)
+            item.setData(Qt.ItemDataRole.UserRole, item_data)
             item.setSizeHint(QSize(0, 50))
             
             # 获取并设置图标
-            icon = self.get_app_icon(app)
+            icon = self.get_item_icon(item_data)
             if icon:
                 item.setIcon(icon)
             
@@ -256,18 +310,16 @@ class SearchWindow(QWidget):
         self.app_list.show()
         self.adjust_window_size()
     
-    def get_app_icon(self, app):
-        """获取应用程序图标"""
-        icon_path = app.get('icon', '')
-        app_path = app.get('path', '')
+    def get_item_icon(self, item_data):
+        """获取项目图标（应用或文件）"""
+        file_path = item_data.get('path', '')
+        icon_path = item_data.get('icon', '')
         
         # 优先使用 icon 属性
-        if icon_path and icon_path.lower().endswith('.exe'):
+        if icon_path and os.path.exists(icon_path):
             return self.load_icon_from_file(icon_path)
-        elif app_path and app_path.lower().endswith('.exe'):
-            return self.load_icon_from_file(app_path)
-        elif icon_path:
-            return self.load_icon_from_file(icon_path)
+        elif file_path and os.path.exists(file_path):
+            return self.load_icon_from_file(file_path)
         
         return None
     
@@ -316,16 +368,25 @@ class SearchWindow(QWidget):
         self.selected_index = self.app_list.row(item)
     
     def on_item_double_clicked(self, item):
-        app = item.data(Qt.ItemDataRole.UserRole)
-        if app:
-            self.app_scanner.launch_app(app['path'])
+        item_data = item.data(Qt.ItemDataRole.UserRole)
+        if item_data:
+            self.launch_item(item_data)
             self.hide_window()
     
     def launch_selected_app(self):
         if self.search_results and 0 <= self.selected_index < len(self.search_results):
-            app = self.search_results[self.selected_index]
-            self.app_scanner.launch_app(app['path'])
+            item_data = self.search_results[self.selected_index]
+            self.launch_item(item_data)
             self.hide_window()
+    
+    def launch_item(self, item_data):
+        """启动应用或打开文件"""
+        path = item_data.get('path', '')
+        if path and os.path.exists(path):
+            try:
+                os.startfile(path)
+            except Exception as e:
+                print(f"启动失败: {e}")
     
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:

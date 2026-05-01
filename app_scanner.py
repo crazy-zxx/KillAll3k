@@ -37,10 +37,12 @@ class AppScanner:
         
         # 预处理应用数据，添加拼音
         for app in self.apps:
+            full_pinyin, initials = self.get_pinyin(app['name'])
             app_data = {
                 'app': app,
                 'name': app['name'].lower(),
-                'pinyin': self.get_pinyin(app['name'])
+                'full_pinyin': full_pinyin,
+                'initials': initials
             }
             self.processed_apps.append(app_data)
         
@@ -55,7 +57,7 @@ class AppScanner:
                 self.scan_directory(directory, recursive=True, max_depth=2)
     
     def get_pinyin(self, text):
-        """获取文本的拼音表示"""
+        """获取文本的拼音表示（分别返回全拼和首字母）"""
         try:
             # 获取拼音，不带声调
             pinyin_list = pinyin(text, style=Style.NORMAL, errors='ignore')
@@ -63,9 +65,9 @@ class AppScanner:
             full_pinyin = ''.join([item[0] for item in pinyin_list])
             # 也获取首字母拼音
             initials = ''.join([item[0][0] if item[0] else '' for item in pinyin_list])
-            return f"{full_pinyin} {initials}"
+            return full_pinyin, initials
         except Exception:
-            return ''
+            return '', ''
     
     def scan_directory_shortcuts(self):
         """扫描常见的快捷方式目录"""
@@ -235,22 +237,24 @@ class AppScanner:
         """过滤掉卸载、安装类应用"""
         self.apps = [app for app in self.apps if not self.is_excluded(app)]
     
-    def search_apps(self, keyword):
+    def search_apps(self, keyword, with_scores=False):
         """模糊搜索应用"""
         keyword = keyword.lower()
-        return self.search_with_rapidfuzz(keyword)
+        results = self.search_with_rapidfuzz(keyword, with_scores)
+        return results
     
-    def search_with_rapidfuzz(self, keyword):
+    def search_with_rapidfuzz(self, keyword, with_scores=False):
         """使用 rapidfuzz 进行高级模糊匹配"""
         candidates = []
         keyword_len = len(keyword)
         
         for app_data in self.processed_apps:
             name = app_data['name']
-            pinyin = app_data['pinyin']
+            full_pinyin = app_data['full_pinyin']
+            initials = app_data['initials']
             base_score = 0
             boost = 0
-            
+
             # === 1. 精确匹配检查 ===
             if name == keyword:
                 base_score = 100
@@ -258,18 +262,30 @@ class AppScanner:
             elif keyword in name:
                 base_score = 95
                 boost = 500
-            elif pinyin and keyword in pinyin:
+            elif initials and keyword == initials:
+                # 首字母精确匹配
+                base_score = 95
+                boost = 450
+            elif initials and keyword in initials:
+                # 首字母包含匹配
                 base_score = 90
                 boost = 400
+            elif full_pinyin and keyword in full_pinyin:
+                # 全拼包含匹配
+                base_score = 88
+                boost = 380
             
             # === 2. 前缀匹配 ===
             if boost == 0:
                 if name.startswith(keyword):
                     base_score = 98
                     boost = 300
-                elif pinyin and pinyin.startswith(keyword):
-                    base_score = 95
-                    boost = 250
+                elif initials and initials.startswith(keyword):
+                    base_score = 96
+                    boost = 280
+                elif full_pinyin and full_pinyin.startswith(keyword):
+                    base_score = 94
+                    boost = 260
             
             # === 3. 各种模糊匹配分数 ===
             scores = []
@@ -286,10 +302,13 @@ class AppScanner:
             # Token Sort Ratio - 词排序匹配
             scores.append(('token_sort', fuzz.token_sort_ratio(keyword, name)))
             
-            # 拼音匹配
-            if pinyin:
-                scores.append(('pinyin_wratio', fuzz.WRatio(keyword, pinyin)))
-                scores.append(('pinyin_partial', fuzz.partial_ratio(keyword, pinyin)))
+            # 拼音匹配 - 分别匹配全拼和首字母
+            if full_pinyin:
+                scores.append(('full_pinyin_wratio', fuzz.WRatio(keyword, full_pinyin)))
+                scores.append(('full_pinyin_partial', fuzz.partial_ratio(keyword, full_pinyin)))
+            if initials:
+                scores.append(('initials_wratio', fuzz.WRatio(keyword, initials)))
+                scores.append(('initials_partial', fuzz.partial_ratio(keyword, initials)))
             
             # 取最高的基础分数
             if base_score == 0:
@@ -307,7 +326,10 @@ class AppScanner:
                 if length_ratio > 0.5:
                     boost += 20 * length_ratio
             
-            # === 5. 计算最终分数 ===
+            # === 5. 应用优先加分 ===
+            boost += 100
+            
+            # === 6. 计算最终分数 ===
             final_score = base_score + boost
             
             if base_score >= 50:
@@ -316,16 +338,25 @@ class AppScanner:
         # 排序：先按最终分数，再按基础分数
         candidates.sort(key=lambda x: (-x[1], -x[2]))
         
-        # 返回应用列表
-        return [app for app, _, _ in candidates]
+        # 根据参数决定返回格式
+        if with_scores:
+            # 返回带分数的应用列表
+            return [{'app': app, 'score': final_score} for app, final_score, _ in candidates]
+        else:
+            # 仅返回应用列表
+            return [app for app, _, _ in candidates]
     
     def launch_app(self, app_path):
         """启动应用程序"""
+        return self.open_path(app_path)
+    
+    def open_path(self, path):
+        """打开路径（文件或应用）"""
         try:
-            if os.path.exists(app_path):
-                os.startfile(app_path)
+            if os.path.exists(path):
+                os.startfile(path)
                 return True
         except Exception as e:
-            print(f"启动应用失败: {e}")
+            print(f"打开失败: {e}")
             return False
         return False

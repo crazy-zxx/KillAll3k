@@ -44,5 +44,10 @@
     "Windows PowerShell ISE",
     "Windows PowerShell ISE (x86)",
     "Windows Software Development Kit"
-  ]
+  ],
+  "enable_file_search": true,
+  "max_file_results": 30,
+  "max_app_results": 20,
+  "everything_path": "D:/GreenApps/Everything/Everything.exe",
+  "everything_dll_path": "D:/GreenApps/Everything/Everything64.dll"
 }

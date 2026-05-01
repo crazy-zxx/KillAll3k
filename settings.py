@@ -36,7 +36,12 @@ class SettingsManager:
             'proxy_username': '',
             'proxy_password': '',
             'custom_scan_dirs': [],
-            'exclude_app_names': []
+            'exclude_app_names': [],
+            'enable_file_search': True,
+            'max_file_results': 30,
+            'max_app_results': 20,
+            'everything_path': '',
+            'everything_dll_path': ''
         }
         self.settings = self.load_settings()
     
@@ -53,8 +58,8 @@ class SettingsManager:
         with open(self.settings_file, 'w', encoding='utf-8') as f:
             json.dump(self.settings, f, ensure_ascii=False, indent=2)
     
-    def get(self, key):
-        return self.settings.get(key, self.default_settings.get(key))
+    def get(self, key, default=None):
+        return self.settings.get(key, self.default_settings.get(key, default))
     
     def set(self, key, value):
         self.settings[key] = value
@@ -317,10 +322,12 @@ class SettingsWindow(QWidget):
         item2 = QListWidgetItem("🔌 系统代理设置")
         item3 = QListWidgetItem("🤖 AI 模型配置")
         item4 = QListWidgetItem("🚀 启动程序扫描")
+        item5 = QListWidgetItem("📁 文件搜索设置")
         sidebar.addItem(item1)
         sidebar.addItem(item2)
         sidebar.addItem(item3)
         sidebar.addItem(item4)
+        sidebar.addItem(item5)
         sidebar.setCurrentRow(0)
         sidebar.currentRowChanged.connect(self.switch_page)
         
@@ -330,6 +337,7 @@ class SettingsWindow(QWidget):
         self.stacked_widget.addWidget(self.create_proxy_settings_page())
         self.stacked_widget.addWidget(self.create_ai_settings_page())
         self.stacked_widget.addWidget(self.create_scan_settings_page())
+        self.stacked_widget.addWidget(self.create_file_search_settings_page())
         
         main_layout.addWidget(sidebar)
         main_layout.addWidget(self.stacked_widget, 1)
@@ -995,6 +1003,9 @@ class SettingsWindow(QWidget):
         # 当切换到启动程序扫描页面时（索引为3），重新从配置文件加载
         elif index == 3:
             self.load_scan_settings()
+        # 当切换到文件搜索设置页面时（索引为4），重新从配置文件加载
+        elif index == 4:
+            self.load_file_search_settings()
     
     def on_theme_changed(self, index):
         theme = ['auto', 'light', 'dark'][index]
@@ -1369,3 +1380,255 @@ class SettingsWindow(QWidget):
         self.settings_manager.set('exclude_app_names', exclude_names)
         
         QMessageBox.information(self, "成功", "扫描配置已保存！")
+    
+    def create_file_search_settings_page(self):
+        page = QWidget()
+        layout = QVBoxLayout()
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(20)
+        
+        title = QLabel("文件搜索设置")
+        title.setFont(QFont("Microsoft YaHei", 16, QFont.Weight.Bold))
+        layout.addWidget(title)
+        
+        # 文件搜索启用开关
+        enable_group = QGroupBox("文件搜索功能")
+        enable_layout = QVBoxLayout()
+        
+        self.enable_file_search_check = QCheckBox("启用文件搜索（需要 Everything 软件）")
+        self.enable_file_search_check.setStyleSheet("QCheckBox { font-size: 14px; padding: 5px; }")
+        enable_layout.addWidget(self.enable_file_search_check)
+        
+        enable_group.setLayout(enable_layout)
+        layout.addWidget(enable_group)
+        
+        # Everything 配置
+        everything_group = QGroupBox("Everything 配置")
+        everything_layout = QFormLayout()
+        everything_layout.setSpacing(15)
+        
+        # Everything 主程序路径
+        self.everything_path_input = QLineEdit()
+        self.everything_path_input.setPlaceholderText("Everything.exe 的路径")
+        self.everything_path_input.setStyleSheet("""
+            QLineEdit {
+                padding: 8px 12px;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                background-color: white;
+            }
+        """)
+        
+        browse_everything_btn = QPushButton("📁 浏览")
+        browse_everything_btn.clicked.connect(self.browse_everything_path)
+        browse_everything_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #6b7280;
+                color: white;
+                padding: 8px 16px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #4b5563;
+            }
+        """)
+        
+        everything_path_layout = QHBoxLayout()
+        everything_path_layout.addWidget(self.everything_path_input)
+        everything_path_layout.addWidget(browse_everything_btn)
+        
+        # Everything DLL 路径
+        self.everything_dll_input = QLineEdit()
+        self.everything_dll_input.setPlaceholderText("Everything64.dll 或 Everything32.dll 的路径")
+        self.everything_dll_input.setStyleSheet("""
+            QLineEdit {
+                padding: 8px 12px;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                background-color: white;
+            }
+        """)
+        
+        browse_dll_btn = QPushButton("📁 浏览")
+        browse_dll_btn.clicked.connect(self.browse_everything_dll)
+        browse_dll_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #6b7280;
+                color: white;
+                padding: 8px 16px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #4b5563;
+            }
+        """)
+        
+        everything_dll_layout = QHBoxLayout()
+        everything_dll_layout.addWidget(self.everything_dll_input)
+        everything_dll_layout.addWidget(browse_dll_btn)
+        
+        # 启动 Everything 按钮
+        start_everything_btn = QPushButton("🚀 启动 Everything")
+        start_everything_btn.clicked.connect(self.start_everything)
+        start_everything_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #10b981;
+                color: white;
+                padding: 8px 24px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #059669;
+            }
+        """)
+        
+        everything_layout.addRow("Everything 主程序：", everything_path_layout)
+        everything_layout.addRow("Everything DLL：", everything_dll_layout)
+        everything_layout.addRow("", start_everything_btn)
+        
+        everything_group.setLayout(everything_layout)
+        layout.addWidget(everything_group)
+        
+        # 结果数量设置
+        result_group = QGroupBox("搜索结果数量")
+        result_layout = QFormLayout()
+        result_layout.setSpacing(15)
+        
+        self.max_app_results_input = QLineEdit()
+        self.max_app_results_input.setPlaceholderText("应用搜索最大结果数")
+        self.max_app_results_input.setStyleSheet("""
+            QLineEdit {
+                padding: 8px 12px;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                background-color: white;
+            }
+        """)
+        
+        self.max_file_results_input = QLineEdit()
+        self.max_file_results_input.setPlaceholderText("文件搜索最大结果数")
+        self.max_file_results_input.setStyleSheet("""
+            QLineEdit {
+                padding: 8px 12px;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                background-color: white;
+            }
+        """)
+        
+        result_layout.addRow("应用搜索最大结果数：", self.max_app_results_input)
+        result_layout.addRow("文件搜索最大结果数：", self.max_file_results_input)
+        
+        result_group.setLayout(result_layout)
+        layout.addWidget(result_group)
+        
+        # 保存按钮
+        save_btn = QPushButton("💾 保存文件搜索配置")
+        save_btn.clicked.connect(self.save_file_search_settings)
+        save_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0ea5e9;
+                color: white;
+                padding: 12px 20px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #0284c7;
+            }
+            QPushButton:pressed {
+                background-color: #0369a1;
+            }
+        """)
+        layout.addWidget(save_btn)
+        
+        layout.addStretch()
+        page.setLayout(layout)
+        return page
+    
+    def browse_everything_path(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "选择 Everything 主程序", 
+            "", 
+            "可执行文件 (*.exe)"
+        )
+        if file_path:
+            self.everything_path_input.setText(file_path)
+    
+    def browse_everything_dll(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "选择 Everything DLL 文件", 
+            "", 
+            "DLL 文件 (*.dll)"
+        )
+        if file_path:
+            self.everything_dll_input.setText(file_path)
+    
+    def start_everything(self):
+        import os
+        import subprocess
+        
+        everything_path = self.everything_path_input.text().strip()
+        
+        if not everything_path:
+            # 尝试自动查找
+            program_files = os.environ.get('PROGRAMFILES', '')
+            program_files_x86 = os.environ.get('PROGRAMFILES(X86)', '')
+            
+            potential_paths = [
+                os.path.join(program_files, 'Everything', 'Everything.exe'),
+                os.path.join(program_files_x86, 'Everything', 'Everything.exe'),
+                r'C:\Program Files\Everything\Everything.exe',
+                r'C:\Program Files (x86)\Everything\Everything.exe'
+            ]
+            
+            for path in potential_paths:
+                if os.path.exists(path):
+                    everything_path = path
+                    break
+        
+        if everything_path and os.path.exists(everything_path):
+            try:
+                subprocess.Popen(everything_path)
+                QMessageBox.information(self, "成功", "Everything 已启动！")
+            except Exception as e:
+                QMessageBox.critical(self, "错误", f"启动 Everything 失败：{str(e)}")
+        else:
+            QMessageBox.warning(self, "警告", "请先设置 Everything 的路径！")
+    
+    def load_file_search_settings(self):
+        self.enable_file_search_check.setChecked(self.settings_manager.get('enable_file_search', True))
+        self.max_app_results_input.setText(str(self.settings_manager.get('max_app_results', 20)))
+        self.max_file_results_input.setText(str(self.settings_manager.get('max_file_results', 30)))
+        self.everything_path_input.setText(self.settings_manager.get('everything_path', ''))
+        self.everything_dll_input.setText(self.settings_manager.get('everything_dll_path', ''))
+    
+    def save_file_search_settings(self):
+        self.settings_manager.set('enable_file_search', self.enable_file_search_check.isChecked())
+        self.settings_manager.set('everything_path', self.everything_path_input.text().strip())
+        self.settings_manager.set('everything_dll_path', self.everything_dll_input.text().strip())
+        
+        try:
+            max_app = int(self.max_app_results_input.text())
+            self.settings_manager.set('max_app_results', max_app)
+        except ValueError:
+            self.settings_manager.set('max_app_results', 20)
+        
+        try:
+            max_file = int(self.max_file_results_input.text())
+            self.settings_manager.set('max_file_results', max_file)
+        except ValueError:
+            self.settings_manager.set('max_file_results', 30)
+        
+        QMessageBox.information(self, "成功", "文件搜索配置已保存！")
