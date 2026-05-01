@@ -60,5 +60,6 @@
   "everything_dll_path": "D:/GreenApps/Everything/Everything64.dll",
   "clipboard_enabled": true,
   "clipboard_history_limit": 0,
-  "clipboard_hotkey": "win+v"
+  "clipboard_hotkey": "win+v",
+  "search_hotkey": "alt+space"
 }

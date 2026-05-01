@@ -137,7 +137,9 @@ class ClipboardManager(QObject):
 
         self._init_database()
         self.load_history()
-        self.start_monitoring()
+        # 根据设置决定是否启动监控
+        if self.settings_manager.get('clipboard_enabled', True):
+            self.start_monitoring()
     
     def _deep_copy_mime_data(self, mime_data):
         from PyQt6.QtCore import QMimeData
@@ -173,9 +175,17 @@ class ClipboardManager(QObject):
 
     def stop_monitoring(self):
         self.timer.stop()
+    
+    def update_monitoring_state(self):
+        """根据设置动态更新监控状态"""
+        enabled = self.settings_manager.get('clipboard_enabled', True)
+        if enabled and not self.timer.isActive():
+            self.start_monitoring()
+        elif not enabled and self.timer.isActive():
+            self.stop_monitoring()
 
     def check_clipboard(self):
-        if self._suppress_monitoring:
+        if self._suppress_monitoring or not self.settings_manager.get('clipboard_enabled', True):
             return
         current_content = self._get_clipboard_content()
         if current_content and current_content != self.last_content:

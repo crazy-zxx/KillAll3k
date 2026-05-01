@@ -44,6 +44,12 @@ class SearchWindow(QWidget):
         self.file_searcher = EverythingSearch(self.settings_manager)
         self.search_results = []
         self.selected_index = 0
+        # 在 SearchWindow 中也创建 ClipboardManager 实例，确保设置变更能即时生效
+        from clipboard_manager import ClipboardManager
+        self.clipboard_manager = ClipboardManager(self.settings_manager)
+        # 用于跟踪当前注册的热键
+        self.current_search_hotkey = None
+        self.current_clipboard_hotkey = None
         
         # 检查是否需要以管理员权限运行
         self.check_admin_privilege()
@@ -54,6 +60,11 @@ class SearchWindow(QWidget):
         self.signal_handler.show_clipboard.connect(self.show_clipboard)
         self.signal_handler.quit_app.connect(self.safe_quit)
         self.signal_handler.theme_changed.connect(self.on_theme_changed)
+        # 连接剪贴板设置变更信号
+        self.signal_handler.clipboard_settings_changed.connect(self.clipboard_manager.update_monitoring_state)
+        self.signal_handler.clipboard_settings_changed.connect(self.update_clipboard_hotkey)
+        # 连接搜索框快捷键变更信号
+        self.signal_handler.search_hotkey_changed.connect(self.update_search_hotkey)
         
         self.theme_manager.apply_theme(self.settings_manager.get('theme'))
         self.init_ui()
@@ -480,7 +491,8 @@ class SearchWindow(QWidget):
             self.clipboard_window = ClipboardWindow(
                 self.settings_manager,
                 self.theme_manager,
-                self.signal_handler
+                self.signal_handler,
+                self.clipboard_manager  # 传递已有的 ClipboardManager 实例
             )
         self.clipboard_window.show()
         self.clipboard_window.activateWindow()
@@ -519,13 +531,51 @@ class SearchWindow(QWidget):
         return image
     
     def setup_hotkey(self):
-        keyboard.add_hotkey('alt+space', lambda: self.signal_handler.toggle_window.emit(), suppress=True)
+        # 初始化搜索框热键
+        self.update_search_hotkey()
+        # 初始化剪贴板热键
+        self.update_clipboard_hotkey()
+    
+    def update_search_hotkey(self):
+        """动态更新搜索框热键状态"""
+        # 先注销旧的热键
+        if self.current_search_hotkey:
+            try:
+                keyboard.remove_hotkey(self.current_search_hotkey)
+            except Exception as e:
+                print(f"Failed to remove old search hotkey: {e}")
+            self.current_search_hotkey = None
         
-        # 添加剪贴板快捷键
+        # 注册新的热键
+        search_hotkey = self.settings_manager.get('search_hotkey', 'alt+space')
+        if search_hotkey:
+            try:
+                keyboard.add_hotkey(search_hotkey, lambda: self.signal_handler.toggle_window.emit(), suppress=True)
+                self.current_search_hotkey = search_hotkey
+            except Exception as e:
+                print(f"Failed to add search hotkey: {e}")
+    
+    def update_clipboard_hotkey(self):
+        """动态更新剪贴板热键状态"""
+        # 先注销旧的热键
+        if self.current_clipboard_hotkey:
+            try:
+                keyboard.remove_hotkey(self.current_clipboard_hotkey)
+            except Exception as e:
+                print(f"Failed to remove old clipboard hotkey: {e}")
+            self.current_clipboard_hotkey = None
+        
+        # 检查剪贴板是否启用
+        clipboard_enabled = self.settings_manager.get('clipboard_enabled', True)
+        if not clipboard_enabled:
+            return
+        
+        # 注册新的热键
         clipboard_hotkey = self.settings_manager.get('clipboard_hotkey', 'win+v')
         if clipboard_hotkey:
             try:
                 keyboard.add_hotkey(clipboard_hotkey, lambda: self.signal_handler.show_clipboard.emit(), suppress=True)
+                self.current_clipboard_hotkey = clipboard_hotkey
             except Exception as e:
                 print(f"Failed to add clipboard hotkey: {e}")
     

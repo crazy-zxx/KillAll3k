@@ -20,6 +20,8 @@ class SignalHandler(QObject):
     show_clipboard = pyqtSignal()
     quit_app = pyqtSignal()
     theme_changed = pyqtSignal(str)
+    clipboard_settings_changed = pyqtSignal()
+    search_hotkey_changed = pyqtSignal()
 
 
 class SettingsManager:
@@ -45,7 +47,8 @@ class SettingsManager:
             'everything_dll_path': '',
             'clipboard_enabled': True,
             'clipboard_history_limit': 0,
-            'clipboard_hotkey': 'win+v'
+            'clipboard_hotkey': 'win+v',
+            'search_hotkey': 'alt+space'
         }
         self.settings = self.load_settings()
     
@@ -407,6 +410,48 @@ class SettingsWindow(QWidget):
         system_layout.addWidget(self.admin_check)
         system_group.setLayout(system_layout)
         layout.addWidget(system_group)
+        
+        # 快捷键设置
+        hotkey_group = QGroupBox("快捷键设置")
+        hotkey_layout = QFormLayout()
+        hotkey_layout.setSpacing(15)
+        
+        self.search_hotkey_input = QLineEdit()
+        self.search_hotkey_input.setPlaceholderText("例如：alt+space")
+        self.search_hotkey_input.setStyleSheet("""
+            QLineEdit {
+                padding: 8px 12px;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                background-color: white;
+            }
+        """)
+        
+        hotkey_layout.addRow("唤醒搜索框快捷键：", self.search_hotkey_input)
+        hotkey_group.setLayout(hotkey_layout)
+        layout.addWidget(hotkey_group)
+        
+        # 保存按钮
+        save_system_btn = QPushButton("💾 保存系统设置")
+        save_system_btn.clicked.connect(self.save_system_settings)
+        save_system_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0ea5e9;
+                color: white;
+                padding: 12px 20px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #0284c7;
+            }
+            QPushButton:pressed {
+                background-color: #0369a1;
+            }
+        """)
+        layout.addWidget(save_system_btn)
         
         layout.addStretch()
         page.setLayout(layout)
@@ -946,6 +991,9 @@ class SettingsWindow(QWidget):
         self.admin_check.setChecked(self.settings_manager.get('run_as_admin'))
         self.admin_check.blockSignals(False)
         
+        # 加载搜索框快捷键
+        self.search_hotkey_input.setText(self.settings_manager.get('search_hotkey', 'alt+space'))
+        
         # 加载代理配置
         self.load_proxy_settings()
         
@@ -954,6 +1002,19 @@ class SettingsWindow(QWidget):
         
         # 加载扫描配置
         self.load_scan_settings()
+    
+    def save_system_settings(self):
+        """保存系统设置（包括快捷键）"""
+        new_hotkey = self.search_hotkey_input.text().strip()
+        if not new_hotkey:
+            new_hotkey = 'alt+space'
+        
+        old_hotkey = self.settings_manager.get('search_hotkey', 'alt+space')
+        if new_hotkey != old_hotkey:
+            self.settings_manager.set('search_hotkey', new_hotkey)
+            self.signal_handler.search_hotkey_changed.emit()
+        
+        QMessageBox.information(self, "成功", "系统设置已保存！")
     
     def load_proxy_settings(self):
         """从配置文件重新加载代理设置"""
@@ -1670,7 +1731,7 @@ class SettingsWindow(QWidget):
         hotkey_layout.setSpacing(15)
         
         self.clipboard_hotkey_input = QLineEdit()
-        self.clipboard_hotkey_input.setPlaceholderText("例如：win+v, ctrl+alt+v")
+        self.clipboard_hotkey_input.setPlaceholderText("例如：win+v, alt+v")
         self.clipboard_hotkey_input.setStyleSheet("""
             QLineEdit {
                 padding: 8px 12px;
@@ -1759,5 +1820,8 @@ class SettingsWindow(QWidget):
         limit_index = self.clipboard_history_limit_combo.currentIndex()
         limits = [0, 100, 500, 1000]
         self.settings_manager.set('clipboard_history_limit', limits[limit_index])
+        
+        # 发送剪贴板设置变更信号
+        self.signal_handler.clipboard_settings_changed.emit()
         
         QMessageBox.information(self, "成功", "剪贴板设置已保存！")
