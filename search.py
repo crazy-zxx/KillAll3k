@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QFileIconProvider
 )
 from PyQt6.QtCore import Qt, QPoint, QTimer, QSize
-from PyQt6.QtGui import QPainter, QBrush, QColor
+from PyQt6.QtGui import QPainter, QBrush, QColor, QIcon
 import pystray
 from PIL import Image, ImageDraw
 import keyboard
@@ -99,6 +99,10 @@ class SearchWindow(QWidget):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFixedSize(600, 60)  # 初始固定大小
+        
+        # 设置窗口图标
+        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo.ico')
+        self.setWindowIcon(QIcon(icon_path))
         
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(5, 5, 5, 5)
@@ -512,9 +516,15 @@ class SearchWindow(QWidget):
             )
     
     def setup_tray(self):
-        icon_image = self.create_tray_icon()
+        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo.ico')
+        try:
+            icon_image = Image.open(icon_path)
+        except Exception:
+            # 如果加载失败，使用默认图标
+            icon_image = self.create_tray_icon()
+        
         menu = pystray.Menu(
-            pystray.MenuItem('显示窗口', self.on_tray_show, default=True),
+            pystray.MenuItem('显示搜索窗口', self.on_tray_show),
             pystray.MenuItem('剪贴板历史', self.on_tray_clipboard),
             pystray.MenuItem('设置', self.on_tray_settings),
             pystray.MenuItem('退出', self.on_tray_quit)
@@ -524,10 +534,22 @@ class SearchWindow(QWidget):
     
     def create_tray_icon(self):
         width, height = 64, 64
-        image = Image.new('RGBA', (width, height), (30, 41, 59, 0))
+        # 完全透明的背景
+        image = Image.new('RGBA', (width, height), (0, 0, 0, 0))
         draw = ImageDraw.Draw(image)
-        draw.rounded_rectangle([8, 8, 56, 56], radius=12, fill=(30, 41, 59, 255))
-        draw.text((32, 32), 'K', fill=(226, 232, 240, 255), anchor='mm', font=None)
+        
+        # 尝试使用系统字体，如果失败则使用默认字体
+        try:
+            from PIL import ImageFont
+            font = ImageFont.truetype("arialbd.ttf", 64)
+        except Exception:
+            try:
+                font = ImageFont.truetype("msyhdb.ttc", 64)  # 微软雅黑
+            except Exception:
+                font = ImageFont.load_default()
+        
+        # 使用蓝色字体 (59, 130, 246)
+        draw.text((32, 32), 'K', fill=(59, 130, 246, 255), anchor='mm', font=font)
         return image
     
     def setup_hotkey(self):
