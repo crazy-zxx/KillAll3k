@@ -2,10 +2,11 @@ import sys
 import os
 import threading
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QLineEdit, QHBoxLayout, QMessageBox, QVBoxLayout, QListWidget, QListWidgetItem, QLabel
+    QApplication, QWidget, QLineEdit, QMessageBox, QVBoxLayout, QListWidget, QListWidgetItem,
+    QFileIconProvider
 )
 from PyQt6.QtCore import Qt, QPoint, QTimer, QSize
-from PyQt6.QtGui import QPainter, QBrush, QColor, QIcon
+from PyQt6.QtGui import QPainter, QBrush, QColor
 import pystray
 from PIL import Image, ImageDraw
 import keyboard
@@ -13,6 +14,15 @@ from settings import (
     SignalHandler, SettingsManager, ThemeManager, AutoStartManager, SettingsWindow
 )
 from app_scanner import AppScanner
+
+try:
+    import win32api
+    import win32con
+    import win32gui
+    from io import BytesIO
+    HAS_WIN32 = True
+except ImportError:
+    HAS_WIN32 = False
 
 
 class SearchWindow(QWidget):
@@ -89,10 +99,14 @@ class SearchWindow(QWidget):
         
         # 应用列表
         self.app_list = QListWidget()
-        self.app_list.setMaximumHeight(400)
+        # self.app_list.setMaximumHeight(400)
+        # 设置列表属性，确保滚动时不会出现空白
+        self.app_list.setUniformItemSizes(True)
+        self.app_list.setVerticalScrollMode(QListWidget.ScrollMode.ScrollPerItem)
         self.app_list.hide()
         self.app_list.itemClicked.connect(self.on_item_clicked)
         self.app_list.itemDoubleClicked.connect(self.on_item_double_clicked)
+        self.app_list.setIconSize(QSize(32, 32))  # 设置适中的图标尺寸
         self.update_app_list_style()
         
         main_layout.addWidget(self.app_list)
@@ -153,9 +167,9 @@ class SearchWindow(QWidget):
                     font-size: 16px;
                 }
                 QListWidget::item {
-                    padding: 12px;
+                    padding: 8px;
                     border-radius: 8px;
-                    margin: 4px 0;
+                    margin: 2px 0;
                 }
                 QListWidget::item:selected {
                     background-color: #3B82F6;
@@ -176,9 +190,9 @@ class SearchWindow(QWidget):
                     font-size: 16px;
                 }
                 QListWidget::item {
-                    padding: 12px;
+                    padding: 8px;
                     border-radius: 8px;
-                    margin: 4px 0;
+                    margin: 2px 0;
                 }
                 QListWidget::item:selected {
                     background-color: #3B82F6;
@@ -226,6 +240,13 @@ class SearchWindow(QWidget):
         for idx, app in enumerate(self.search_results):
             item = QListWidgetItem(app['name'])
             item.setData(Qt.ItemDataRole.UserRole, app)
+            item.setSizeHint(QSize(0, 50))
+            
+            # 获取并设置图标
+            icon = self.get_app_icon(app)
+            if icon:
+                item.setIcon(icon)
+            
             self.app_list.addItem(item)
         
         self.selected_index = 0
@@ -235,22 +256,56 @@ class SearchWindow(QWidget):
         self.app_list.show()
         self.adjust_window_size()
     
+    def get_app_icon(self, app):
+        """获取应用程序图标"""
+        icon_path = app.get('icon', '')
+        app_path = app.get('path', '')
+        
+        # 优先使用 icon 属性
+        if icon_path and icon_path.lower().endswith('.exe'):
+            return self.load_icon_from_file(icon_path)
+        elif app_path and app_path.lower().endswith('.exe'):
+            return self.load_icon_from_file(app_path)
+        elif icon_path:
+            return self.load_icon_from_file(icon_path)
+        
+        return None
+    
+    def load_icon_from_file(self, file_path):
+        """从文件加载图标"""
+        if not os.path.exists(file_path):
+            return None
+        
+        try:
+            from PyQt6.QtCore import QFileInfo, QSize
+            provider = QFileIconProvider()
+            file_info = QFileInfo(file_path)
+            icon = provider.icon(file_info)
+            if not icon.isNull():
+                return icon
+        except Exception:
+            pass
+        
+        return None
+    
     def adjust_window_size(self):
         if self.app_list.isVisible() and self.app_list.count() > 0:
             count = self.app_list.count()
-            item_height = self.app_list.sizeHintForRow(0) or 50
-            
-            if count <= 6:
+            item_height = self.app_list.sizeHintForRow(0) 
+            max_item = 5
+            if count <= max_item:
+                # 给每个项目留足够的空间，确保不出现滚动条
                 list_height = item_height * count + 20
                 self.app_list.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
             else:
-                list_height = min(item_height * 6 + 20, 300)
+                list_height = min(item_height * max_item + 20, 250 + 20)
                 self.app_list.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
             
             total_height = 60 + list_height
             current_pos = self.pos()
             self.setFixedSize(600, total_height)
             self.app_list.setMaximumHeight(list_height)
+            self.app_list.setMinimumHeight(list_height)  # 确保最小高度足够
             self.move(current_pos)
         else:
             current_pos = self.pos()

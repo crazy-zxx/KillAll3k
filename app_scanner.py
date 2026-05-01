@@ -1,15 +1,10 @@
 import os
-import sys
 import winreg
-import subprocess
 from typing import List, Dict
 
-try:
-    from pypinyin import pinyin, Style
-    from rapidfuzz import fuzz, process
-    HAS_LIBS = True
-except ImportError:
-    HAS_LIBS = False
+from pypinyin import pinyin, Style
+from rapidfuzz import fuzz
+from pylnk3 import parse
 
 
 class AppScanner:
@@ -28,9 +23,6 @@ class AppScanner:
         self.apps.clear()
         self.processed_apps.clear()
         
-        # 扫描注册表中的应用
-        self.scan_registry_apps()
-        
         # 扫描桌面和开始菜单
         self.scan_directory_shortcuts()
         
@@ -48,7 +40,7 @@ class AppScanner:
             app_data = {
                 'app': app,
                 'name': app['name'].lower(),
-                'pinyin': self.get_pinyin(app['name']) if HAS_LIBS else ''
+                'pinyin': self.get_pinyin(app['name'])
             }
             self.processed_apps.append(app_data)
         
@@ -64,9 +56,6 @@ class AppScanner:
     
     def get_pinyin(self, text):
         """获取文本的拼音表示"""
-        if not HAS_LIBS:
-            return ''
-        
         try:
             # 获取拼音，不带声调
             pinyin_list = pinyin(text, style=Style.NORMAL, errors='ignore')
@@ -106,14 +95,28 @@ class AppScanner:
                     self.scan_directory(item_path, recursive=True, max_depth=max_depth, current_depth=current_depth + 1)
                 elif item.lower().endswith('.lnk'):
                     try:
+                        lnk_path, lnk_icon = self.parse_lnk(item_path)
+                        if lnk_path:
+                            self.apps.append({
+                                'name': os.path.splitext(item)[0],
+                                'path': lnk_path,
+                                'icon': lnk_icon if lnk_icon else lnk_path,
+                                'type': 'shortcut'
+                            })
+                        else:
+                            self.apps.append({
+                                'name': os.path.splitext(item)[0],
+                                'path': item_path,
+                                'icon': item_path,
+                                'type': 'shortcut'
+                            })
+                    except Exception:
                         self.apps.append({
                             'name': os.path.splitext(item)[0],
                             'path': item_path,
                             'icon': item_path,
                             'type': 'shortcut'
                         })
-                    except Exception:
-                        pass
                 elif item.lower().endswith('.exe'):
                     try:
                         self.apps.append({
@@ -127,62 +130,46 @@ class AppScanner:
         except Exception:
             pass
     
-    def scan_registry_apps(self):
-        """从注册表扫描已安装的应用"""
-        registry_paths = [
-            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
-            (winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
-            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall")
-        ]
-        
-        for root, subkey_path in registry_paths:
-            try:
-                key = winreg.OpenKey(root, subkey_path)
-                index = 0
-                while True:
-                    try:
-                        app_key_name = winreg.EnumKey(key, index)
-                        index += 1
-                        
-                        try:
-                            app_key = winreg.OpenKey(key, app_key_name)
-                            try:
-                                display_name = winreg.QueryValueEx(app_key, "DisplayName")[0]
-                                
-                                display_icon = None
-                                try:
-                                    display_icon = winreg.QueryValueEx(app_key, "DisplayIcon")[0]
-                                except Exception:
-                                    pass
-                                
-                                install_location = None
-                                try:
-                                    install_location = winreg.QueryValueEx(app_key, "InstallLocation")[0]
-                                except Exception:
-                                    pass
-                                
-                                app_path = None
-                                if display_icon:
-                                    app_path = self.extract_exe_path(display_icon)
-                                
-                                if not app_path and install_location:
-                                    app_path = self.find_exe_in_directory(install_location)
-                                
-                                if display_name and app_path and os.path.exists(app_path):
-                                    self.apps.append({
-                                        'name': display_name,
-                                        'path': app_path,
-                                        'icon': display_icon if display_icon else '',
-                                        'type': 'registry'
-                                    })
-                            except Exception:
-                                pass
-                        except Exception:
-                            pass
-                    except OSError:
-                        break
-            except Exception:
-                pass
+    def parse_lnk(self, lnk_path):
+        """使用 pylnk3 解析 .lnk 文件，获取目标路径和图标信息"""
+        try:
+            with open(lnk_path, 'rb') as f:
+                lnk = parse(f)
+            
+            target_path = None
+            icon_path = None
+            
+            # 获取目标路径
+            if hasattr(lnk, 'link_target_id_list') and lnk.link_target_id_list:
+                # 尝试从 link_target_id_list 获取路径
+                if hasattr(lnk.link_target_id_list, 'path'):
+                    target_path = lnk.link_target_id_list.path
+            
+            # 如果上面没有获取到，尝试从相对路径或绝对路径获取
+            if not target_path and hasattr(lnk, 'link_info'):
+                if hasattr(lnk.link_info, 'local_base_path'):
+                    target_path = lnk.link_info.local_base_path
+                elif hasattr(lnk.link_info, 'path'):
+                    target_path = lnk.link_info.path
+            
+            # 获取图标信息
+            if hasattr(lnk, 'icon_location'):
+                icon_location = lnk.icon_location
+                if icon_location:
+                    # 分离图标路径和索引
+                    icon_parts = icon_location.split(',')
+                    icon_path = icon_parts[0].strip()
+            
+            # 验证路径是否存在
+            if target_path and not os.path.exists(target_path):
+                target_path = None
+            if icon_path and not os.path.exists(icon_path):
+                icon_path = None
+            
+            return target_path, icon_path
+        except Exception:
+            return None, None
+    
     
     def extract_exe_path(self, display_icon):
         """从 DisplayIcon 提取 exe 路径"""
@@ -215,13 +202,22 @@ class AppScanner:
         return None
     
     def is_excluded(self, app):
-        """检查应用是否应该被排除（卸载、安装程序）"""
+        """检查应用是否应该被排除（卸载、安装程序或用户自定义）"""
         name_lower = app['name'].lower()
         path_lower = app['path'].lower()
         
+        # 检查默认排除关键词
         for keyword in self.exclude_keywords:
             if keyword in name_lower or keyword in path_lower:
                 return True
+        
+        # 检查用户自定义排除名称
+        if self.settings_manager:
+            exclude_names = self.settings_manager.get('exclude_app_names')
+            for exclude_name in exclude_names:
+                if exclude_name.lower() in name_lower:
+                    return True
+        
         return False
     
     def remove_duplicates(self):
@@ -242,49 +238,86 @@ class AppScanner:
     def search_apps(self, keyword):
         """模糊搜索应用"""
         keyword = keyword.lower()
-        
-        if HAS_LIBS:
-            return self.search_with_rapidfuzz(keyword)
-        else:
-            return self.search_simple(keyword)
-    
-    def search_simple(self, keyword):
-        """简单匹配（备用）"""
-        results = []
-        for app in self.apps:
-            app_name = app['name'].lower()
-            if keyword in app_name:
-                results.append(app)
-        return results
+        return self.search_with_rapidfuzz(keyword)
     
     def search_with_rapidfuzz(self, keyword):
         """使用 rapidfuzz 进行高级模糊匹配"""
         candidates = []
+        keyword_len = len(keyword)
         
         for app_data in self.processed_apps:
-            score = 0
+            name = app_data['name']
+            pinyin = app_data['pinyin']
+            base_score = 0
+            boost = 0
             
-            # 1. 原始名称匹配
-            name_score = fuzz.partial_ratio(keyword, app_data['name'])
-            score = max(score, name_score)
+            # === 1. 精确匹配检查 ===
+            if name == keyword:
+                base_score = 100
+                boost = 1000
+            elif keyword in name:
+                base_score = 95
+                boost = 500
+            elif pinyin and keyword in pinyin:
+                base_score = 90
+                boost = 400
             
-            # 2. 拼音匹配
-            if app_data['pinyin']:
-                pinyin_score = fuzz.partial_ratio(keyword, app_data['pinyin'])
-                score = max(score, pinyin_score)
+            # === 2. 前缀匹配 ===
+            if boost == 0:
+                if name.startswith(keyword):
+                    base_score = 98
+                    boost = 300
+                elif pinyin and pinyin.startswith(keyword):
+                    base_score = 95
+                    boost = 250
             
-            # 3. token 匹配
-            token_score = fuzz.token_set_ratio(keyword, app_data['name'])
-            score = max(score, token_score)
+            # === 3. 各种模糊匹配分数 ===
+            scores = []
             
-            if score > 50:  # 阈值，只保留匹配度较高的
-                candidates.append((app_data['app'], score))
+            # WRatio - 综合匹配
+            scores.append(('wratio', fuzz.WRatio(keyword, name)))
+            
+            # Token Set Ratio - 词集合匹配
+            scores.append(('token', fuzz.token_set_ratio(keyword, name)))
+            
+            # Partial Ratio - 子字符串匹配
+            scores.append(('partial', fuzz.partial_ratio(keyword, name)))
+            
+            # Token Sort Ratio - 词排序匹配
+            scores.append(('token_sort', fuzz.token_sort_ratio(keyword, name)))
+            
+            # 拼音匹配
+            if pinyin:
+                scores.append(('pinyin_wratio', fuzz.WRatio(keyword, pinyin)))
+                scores.append(('pinyin_partial', fuzz.partial_ratio(keyword, pinyin)))
+            
+            # 取最高的基础分数
+            if base_score == 0:
+                base_score = max(s[1] for s in scores) if scores else 0
+            
+            # === 4. 额外加分 ===
+            # 如果多个匹配方法都有高分，额外加分
+            high_score_count = sum(1 for s in scores if s[1] >= 85)
+            boost += high_score_count * 10
+            
+            # 长度接近加分
+            name_len = len(name)
+            if keyword_len >= 2 and name_len >= keyword_len:
+                length_ratio = keyword_len / name_len
+                if length_ratio > 0.5:
+                    boost += 20 * length_ratio
+            
+            # === 5. 计算最终分数 ===
+            final_score = base_score + boost
+            
+            if base_score >= 50:
+                candidates.append((app_data['app'], final_score, base_score))
         
-        # 按分数排序，降序
-        candidates.sort(key=lambda x: x[1], reverse=True)
+        # 排序：先按最终分数，再按基础分数
+        candidates.sort(key=lambda x: (-x[1], -x[2]))
         
         # 返回应用列表
-        return [app for app, score in candidates]
+        return [app for app, _, _ in candidates]
     
     def launch_app(self, app_path):
         """启动应用程序"""

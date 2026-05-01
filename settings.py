@@ -2,7 +2,6 @@ import sys
 import os
 import json
 import ctypes
-from xmlrpc.client import FastParser
 
 import requests
 from PyQt6.QtWidgets import (
@@ -10,8 +9,8 @@ from PyQt6.QtWidgets import (
     QListWidget, QListWidgetItem, QStackedWidget, QLineEdit, QPushButton, QScrollArea,
     QFormLayout, QMessageBox, QFrame, QFileDialog
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QObject, QSize
-from PyQt6.QtGui import QPalette, QColor, QIcon, QFont
+from PyQt6.QtCore import Qt, pyqtSignal, QObject
+from PyQt6.QtGui import QPalette, QColor, QFont
 
 
 class SignalHandler(QObject):
@@ -36,7 +35,8 @@ class SettingsManager:
             'proxy_port': '',
             'proxy_username': '',
             'proxy_password': '',
-            'custom_scan_dirs': []
+            'custom_scan_dirs': [],
+            'exclude_app_names': []
         }
         self.settings = self.load_settings()
     
@@ -1122,12 +1122,12 @@ class SettingsWindow(QWidget):
             QListWidget {
                 border: 1px solid #e2e8f0;
                 border-radius: 8px;
-                padding: 8px;
+                padding: 4px;
                 background-color: white;
                 font-size: 14px;
             }
             QListWidget::item {
-                padding: 8px;
+                padding: 4px;
                 border-radius: 4px;
                 margin: 2px 0;
             }
@@ -1147,7 +1147,7 @@ class SettingsWindow(QWidget):
             QPushButton {
                 background-color: #10b981;
                 color: white;
-                padding: 10px 20px;
+                padding: 2px 20px;
                 border: none;
                 border-radius: 6px;
                 font-size: 14px;
@@ -1164,7 +1164,7 @@ class SettingsWindow(QWidget):
             QPushButton {
                 background-color: #ef4444;
                 color: white;
-                padding: 10px 20px;
+                padding: 2px 20px;
                 border: none;
                 border-radius: 6px;
                 font-size: 14px;
@@ -1182,6 +1182,94 @@ class SettingsWindow(QWidget):
         
         dir_group.setLayout(dir_layout)
         layout.addWidget(dir_group, 1)
+        
+        # 排除列表
+        exclude_group = QGroupBox("自定义排除应用")
+        exclude_layout = QVBoxLayout()
+        exclude_layout.setSpacing(15)
+        
+        exclude_desc = QLabel("添加应用名称关键词，包含这些关键词的应用将不会显示在搜索结果中：")
+        exclude_desc.setStyleSheet("color: #64748b; font-size: 13px;")
+        exclude_layout.addWidget(exclude_desc)
+        
+        self.exclude_names_list = QListWidget()
+        self.exclude_names_list.setStyleSheet("""
+            QListWidget {
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                padding: 4px;
+                background-color: white;
+                font-size: 14px;
+            }
+            QListWidget::item {
+                padding: 4px;
+                border-radius: 4px;
+                margin: 2px 0;
+            }
+            QListWidget::item:selected {
+                background-color: #fee2e2;
+                color: #991b1b;
+            }
+        """)
+        exclude_layout.addWidget(self.exclude_names_list, 1)
+        
+        # 排除列表按钮区
+        exclude_btn_layout = QHBoxLayout()
+        
+        # 添加排除名称输入框
+        self.exclude_name_input = QLineEdit()
+        self.exclude_name_input.setPlaceholderText("输入要排除的应用名称关键词...")
+        self.exclude_name_input.setStyleSheet("""
+            QLineEdit {
+                padding: 8px 12px;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                background-color: white;
+            }
+        """)
+        self.exclude_name_input.returnPressed.connect(self.add_exclude_name)
+        
+        add_exclude_btn = QPushButton("➕ 添加排除")
+        add_exclude_btn.clicked.connect(self.add_exclude_name)
+        add_exclude_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f59e0b;
+                color: white;
+                padding: 2px 20px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #d97706;
+            }
+        """)
+        
+        delete_exclude_btn = QPushButton("🗑️ 删除选中")
+        delete_exclude_btn.clicked.connect(self.delete_exclude_name)
+        delete_exclude_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #ef4444;
+                color: white;
+                padding: 2px 20px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #dc2626;
+            }
+        """)
+        
+        exclude_btn_layout.addWidget(self.exclude_name_input, 1)
+        exclude_btn_layout.addWidget(add_exclude_btn)
+        exclude_btn_layout.addWidget(delete_exclude_btn)
+        exclude_layout.addLayout(exclude_btn_layout)
+        
+        exclude_group.setLayout(exclude_layout)
+        layout.addWidget(exclude_group, 1)
         
         # 保存按钮
         save_btn = QPushButton("💾 保存扫描配置")
@@ -1230,15 +1318,54 @@ class SettingsWindow(QWidget):
         else:
             QMessageBox.warning(self, "警告", "请先选择要删除的目录！")
     
+    def add_exclude_name(self):
+        exclude_name = self.exclude_name_input.text().strip()
+        if exclude_name:
+            # 检查是否已存在
+            exists = False
+            for i in range(self.exclude_names_list.count()):
+                if self.exclude_names_list.item(i).text().lower() == exclude_name.lower():
+                    exists = True
+                    break
+            if not exists:
+                self.exclude_names_list.addItem(exclude_name)
+                self.exclude_name_input.clear()
+            else:
+                QMessageBox.information(self, "提示", "该排除关键词已存在！")
+        else:
+            QMessageBox.warning(self, "警告", "请输入要排除的应用名称关键词！")
+    
+    def delete_exclude_name(self):
+        current_row = self.exclude_names_list.currentRow()
+        if current_row >= 0:
+            self.exclude_names_list.takeItem(current_row)
+        else:
+            QMessageBox.warning(self, "警告", "请先选择要删除的排除关键词！")
+    
     def load_scan_settings(self):
+        # 加载扫描目录
         self.scan_dirs_list.clear()
         scan_dirs = self.settings_manager.get('custom_scan_dirs')
         for dir_path in scan_dirs:
             self.scan_dirs_list.addItem(dir_path)
+        
+        # 加载排除应用列表
+        self.exclude_names_list.clear()
+        exclude_names = self.settings_manager.get('exclude_app_names')
+        for name in exclude_names:
+            self.exclude_names_list.addItem(name)
     
     def save_scan_settings(self):
+        # 保存扫描目录
         scan_dirs = []
         for i in range(self.scan_dirs_list.count()):
             scan_dirs.append(self.scan_dirs_list.item(i).text())
         self.settings_manager.set('custom_scan_dirs', scan_dirs)
+        
+        # 保存排除应用列表
+        exclude_names = []
+        for i in range(self.exclude_names_list.count()):
+            exclude_names.append(self.exclude_names_list.item(i).text())
+        self.settings_manager.set('exclude_app_names', exclude_names)
+        
         QMessageBox.information(self, "成功", "扫描配置已保存！")
