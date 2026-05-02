@@ -50,6 +50,7 @@ class SearchWindow(QWidget):
         # 用于跟踪当前注册的热键
         self.current_search_hotkey = None
         self.current_clipboard_hotkey = None
+        self.current_screenshot_hotkey = None
         
         # 检查是否需要以管理员权限运行
         self.check_admin_privilege()
@@ -58,6 +59,7 @@ class SearchWindow(QWidget):
         self.signal_handler.show_window.connect(self.show_window)
         self.signal_handler.show_settings.connect(self.show_settings)
         self.signal_handler.show_clipboard.connect(self.show_clipboard)
+        self.signal_handler.take_screenshot.connect(self.take_screenshot)
         self.signal_handler.quit_app.connect(self.safe_quit)
         self.signal_handler.theme_changed.connect(self.on_theme_changed)
         # 连接剪贴板设置变更信号
@@ -65,6 +67,8 @@ class SearchWindow(QWidget):
         self.signal_handler.clipboard_settings_changed.connect(self.update_clipboard_hotkey)
         # 连接搜索框快捷键变更信号
         self.signal_handler.search_hotkey_changed.connect(self.update_search_hotkey)
+        # 连接截图快捷键变更信号
+        self.signal_handler.screenshot_hotkey_changed.connect(self.update_screenshot_hotkey)
         
         self.theme_manager.apply_theme(self.settings_manager.get('theme'))
         self.init_ui()
@@ -557,6 +561,8 @@ class SearchWindow(QWidget):
         self.update_search_hotkey()
         # 初始化剪贴板热键
         self.update_clipboard_hotkey()
+        # 初始化截图热键
+        self.update_screenshot_hotkey()
     
     def update_search_hotkey(self):
         """动态更新搜索框热键状态"""
@@ -600,6 +606,34 @@ class SearchWindow(QWidget):
                 self.current_clipboard_hotkey = clipboard_hotkey
             except Exception as e:
                 print(f"Failed to add clipboard hotkey: {e}")
+    
+    def update_screenshot_hotkey(self):
+        """动态更新截图热键状态"""
+        # 先注销旧的热键
+        if self.current_screenshot_hotkey:
+            try:
+                keyboard.remove_hotkey(self.current_screenshot_hotkey)
+            except Exception as e:
+                print(f"Failed to remove old screenshot hotkey: {e}")
+            self.current_screenshot_hotkey = None
+        
+        # 检查截图是否启用
+        screenshot_enabled = self.settings_manager.get('screenshot_enabled', True)
+        if not screenshot_enabled:
+            return
+        
+        # 注册新的热键
+        screenshot_hotkey = self.settings_manager.get('screenshot_hotkey', 'ctrl+alt+a')
+        if screenshot_hotkey:
+            try:
+                keyboard.add_hotkey(screenshot_hotkey, lambda: self.signal_handler.take_screenshot.emit(), suppress=True)
+                self.current_screenshot_hotkey = screenshot_hotkey
+            except Exception as e:
+                print(f"Failed to add screenshot hotkey: {e}")
+    
+    def take_screenshot(self):
+        """执行截图操作（占位符，后续完善）"""
+        QMessageBox.information(self, "提示", "截图功能即将上线！")
     
     def on_tray_show(self, icon, item):
         self.signal_handler.show_window.emit()

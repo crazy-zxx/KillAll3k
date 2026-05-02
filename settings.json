@@ -61,5 +61,10 @@
   "clipboard_enabled": true,
   "clipboard_history_limit": 0,
   "clipboard_hotkey": "win+v",
-  "search_hotkey": "alt+space"
+  "search_hotkey": "alt+space",
+  "screenshot_enabled": true,
+  "screenshot_hotkey": "ctrl+alt+a",
+  "screenshot_action": "annotate",
+  "screenshot_save_path": "C:\\Users\\zhao\\Pictures\\Screenshots",
+  "screenshot_format": "png"
 }

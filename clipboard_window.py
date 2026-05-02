@@ -1269,11 +1269,11 @@ class ClipboardWindow(QWidget):
                 menu.addSeparator()
 
             if item.type in [ClipboardItem.TYPE_TEXT, ClipboardItem.TYPE_IMAGE]:
-                explain_action = menu.addAction("🤖 AI 解释")
+                explain_action = menu.addAction("AI 解释")
                 explain_action.triggered.connect(lambda: self.ai_explain(item))
 
                 if item.type == ClipboardItem.TYPE_TEXT:
-                    translate_action = menu.addAction("🌍 AI 翻译")
+                    translate_action = menu.addAction("AI 翻译")
                     translate_action.triggered.connect(lambda: self.ai_translate(item))
 
                 menu.addSeparator()

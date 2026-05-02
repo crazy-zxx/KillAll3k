@@ -18,13 +18,37 @@ class SignalHandler(QObject):
     show_window = pyqtSignal()
     show_settings = pyqtSignal()
     show_clipboard = pyqtSignal()
+    take_screenshot = pyqtSignal()
     quit_app = pyqtSignal()
     theme_changed = pyqtSignal(str)
     clipboard_settings_changed = pyqtSignal()
     search_hotkey_changed = pyqtSignal()
+    screenshot_hotkey_changed = pyqtSignal()
 
 
 class SettingsManager:
+    @staticmethod
+    def get_default_screenshot_path():
+        """获取当前用户的默认截图保存目录"""
+        try:
+            # 获取用户主目录
+            user_profile = os.environ.get('USERPROFILE')
+            if user_profile:
+                # 尝试常见的截图保存路径
+                screenshots_path = os.path.join(user_profile, 'Pictures', 'Screenshots')
+                if os.path.exists(screenshots_path):
+                    return screenshots_path
+                # 如果不存在，尝试 Pictures 目录
+                pictures_path = os.path.join(user_profile, 'Pictures')
+                if os.path.exists(pictures_path):
+                    return pictures_path
+                # 否则返回用户主目录
+                return user_profile
+        except Exception:
+            pass
+        # 如果获取失败，返回一个合理的默认路径
+        return 'C:\\Users\\Public\\Pictures'
+    
     def __init__(self):
         self.settings_file = os.path.join(os.path.dirname(__file__), 'settings.json')
         self.default_settings = {
@@ -48,7 +72,12 @@ class SettingsManager:
             'clipboard_enabled': True,
             'clipboard_history_limit': 0,
             'clipboard_hotkey': 'win+v',
-            'search_hotkey': 'alt+space'
+            'search_hotkey': 'alt+space',
+            'screenshot_enabled': True,
+            'screenshot_hotkey': 'ctrl+alt+a',
+            'screenshot_action': 'annotate',
+            'screenshot_save_path': self.get_default_screenshot_path(),
+            'screenshot_format': 'png'
         }
         self.settings = self.load_settings()
     
@@ -331,12 +360,14 @@ class SettingsWindow(QWidget):
         item4 = QListWidgetItem("🚀 启动程序扫描")
         item5 = QListWidgetItem("📁 文件搜索设置")
         item6 = QListWidgetItem("📋 剪贴板设置")
+        item7 = QListWidgetItem("📷 截图设置")
         sidebar.addItem(item1)
         sidebar.addItem(item2)
         sidebar.addItem(item3)
         sidebar.addItem(item4)
         sidebar.addItem(item5)
         sidebar.addItem(item6)
+        sidebar.addItem(item7)
         sidebar.setCurrentRow(0)
         sidebar.currentRowChanged.connect(self.switch_page)
         
@@ -348,6 +379,7 @@ class SettingsWindow(QWidget):
         self.stacked_widget.addWidget(self.create_scan_settings_page())
         self.stacked_widget.addWidget(self.create_file_search_settings_page())
         self.stacked_widget.addWidget(self.create_clipboard_settings_page())
+        self.stacked_widget.addWidget(self.create_screenshot_settings_page())
         
         main_layout.addWidget(sidebar)
         main_layout.addWidget(self.stacked_widget, 1)
@@ -1076,6 +1108,8 @@ class SettingsWindow(QWidget):
             self.load_file_search_settings()
         elif index == 5:
             self.load_clipboard_settings()
+        elif index == 6:
+            self.load_screenshot_settings()
     
     def on_theme_changed(self, index):
         theme = ['auto', 'light', 'dark'][index]
@@ -1825,3 +1859,233 @@ class SettingsWindow(QWidget):
         self.signal_handler.clipboard_settings_changed.emit()
         
         QMessageBox.information(self, "成功", "剪贴板设置已保存！")
+    
+    def create_screenshot_settings_page(self):
+        page = QWidget()
+        
+        # 滚动区域
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        
+        scroll_content = QWidget()
+        layout = QVBoxLayout()
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(20)
+        
+        title = QLabel("截图设置")
+        title.setFont(QFont("Microsoft YaHei", 16, QFont.Weight.Bold))
+        layout.addWidget(title)
+        
+        # 功能启用设置
+        enable_group = QGroupBox("功能启用")
+        enable_layout = QVBoxLayout()
+        enable_layout.setSpacing(15)
+        
+        self.screenshot_enabled_check = QCheckBox("启用截图功能")
+        self.screenshot_enabled_check.setStyleSheet("QCheckBox { font-size: 14px; padding: 5px; }")
+        self.screenshot_enabled_check.toggled.connect(self.on_screenshot_enabled_toggled)
+        
+        enable_layout.addWidget(self.screenshot_enabled_check)
+        enable_group.setLayout(enable_layout)
+        layout.addWidget(enable_group)
+        
+        # 快捷键设置
+        hotkey_group = QGroupBox("快捷键设置")
+        hotkey_layout = QFormLayout()
+        hotkey_layout.setSpacing(15)
+        
+        self.screenshot_hotkey_input = QLineEdit()
+        self.screenshot_hotkey_input.setPlaceholderText("例如：ctrl+alt+a")
+        self.screenshot_hotkey_input.setStyleSheet("""
+            QLineEdit {
+                padding: 8px 12px;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                background-color: white;
+            }
+        """)
+        
+        hotkey_layout.addRow("截图快捷键：", self.screenshot_hotkey_input)
+        hotkey_group.setLayout(hotkey_layout)
+        layout.addWidget(hotkey_group)
+        
+        # 截图后操作（下拉菜单）
+        action_group = QGroupBox("截图后操作")
+        action_layout = QFormLayout()
+        action_layout.setSpacing(15)
+        
+        self.screenshot_action_combo = QComboBox()
+        self.screenshot_action_combo.addItems([
+            "进行标注操作", 
+            "直接复制到剪贴板", 
+            "直接保存到文件"
+        ])
+        self.screenshot_action_combo.setStyleSheet("""
+            QComboBox {
+                padding: 8px 12px;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                background-color: white;
+                min-height: 30px;
+            }
+        """)
+        self.screenshot_action_combo.currentIndexChanged.connect(self.on_screenshot_action_changed)
+        
+        action_layout.addRow("默认操作：", self.screenshot_action_combo)
+        action_group.setLayout(action_layout)
+        layout.addWidget(action_group)
+        
+        # 保存路径和格式
+        save_group = QGroupBox("保存设置")
+        save_layout = QFormLayout()
+        save_layout.setSpacing(15)
+        
+        self.screenshot_save_path_input = QLineEdit()
+        self.screenshot_save_path_input.setPlaceholderText("选择截图保存目录")
+        self.screenshot_save_path_input.setStyleSheet("""
+            QLineEdit {
+                padding: 8px 12px;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                background-color: white;
+            }
+        """)
+        
+        browse_save_path_btn = QPushButton("📁 浏览")
+        browse_save_path_btn.clicked.connect(self.browse_screenshot_save_path)
+        browse_save_path_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #6b7280;
+                color: white;
+                padding: 8px 16px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #4b5563;
+            }
+        """)
+        
+        save_path_layout = QHBoxLayout()
+        save_path_layout.addWidget(self.screenshot_save_path_input)
+        save_path_layout.addWidget(browse_save_path_btn)
+        
+        self.screenshot_format_combo = QComboBox()
+        self.screenshot_format_combo.addItems(["PNG", "JPG", "BMP"])
+        self.screenshot_format_combo.setStyleSheet("""
+            QComboBox {
+                padding: 8px 12px;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                background-color: white;
+                min-height: 30px;
+            }
+        """)
+        
+        save_layout.addRow("保存目录：", save_path_layout)
+        save_layout.addRow("保存格式：", self.screenshot_format_combo)
+        save_group.setLayout(save_layout)
+        layout.addWidget(save_group)
+        
+        # 保存按钮
+        save_btn = QPushButton("💾 保存截图设置")
+        save_btn.clicked.connect(self.save_screenshot_settings)
+        save_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0ea5e9;
+                color: white;
+                padding: 12px 20px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #0284c7;
+            }
+            QPushButton:pressed {
+                background-color: #0369a1;
+            }
+        """)
+        layout.addWidget(save_btn)
+        
+        layout.addStretch()
+        scroll_content.setLayout(layout)
+        scroll.setWidget(scroll_content)
+        
+        main_page_layout = QVBoxLayout()
+        main_page_layout.setContentsMargins(0, 0, 0, 0)
+        main_page_layout.addWidget(scroll)
+        page.setLayout(main_page_layout)
+        
+        return page
+    
+    def on_screenshot_enabled_toggled(self, checked):
+        """当启用/禁用截图功能时，切换相关控件状态"""
+        self.screenshot_hotkey_input.setEnabled(checked)
+        self.screenshot_action_combo.setEnabled(checked)
+        self.screenshot_format_combo.setEnabled(checked)
+        # 如果选择了保存到文件，路径输入才启用
+        self.screenshot_save_path_input.setEnabled(
+            checked and self.screenshot_action_combo.currentIndex() == 2
+        )
+    
+    def on_screenshot_action_changed(self, index):
+        """当操作选项变化时，更新保存路径输入框的启用状态"""
+        if self.screenshot_enabled_check.isChecked():
+            self.screenshot_save_path_input.setEnabled(index == 2)
+    
+    def browse_screenshot_save_path(self):
+        dir_path = QFileDialog.getExistingDirectory(self, "选择截图保存目录")
+        if dir_path:
+            self.screenshot_save_path_input.setText(dir_path)
+    
+    def load_screenshot_settings(self):
+        self.screenshot_enabled_check.setChecked(self.settings_manager.get('screenshot_enabled', True))
+        self.screenshot_hotkey_input.setText(self.settings_manager.get('screenshot_hotkey', 'ctrl+alt+a'))
+        
+        action_map = {'annotate': 0, 'clipboard': 1, 'save': 2}
+        action = self.settings_manager.get('screenshot_action', 'annotate')
+        self.screenshot_action_combo.setCurrentIndex(action_map.get(action, 0))
+        
+        # 获取保存路径，如果为空则使用默认值
+        save_path = self.settings_manager.get('screenshot_save_path', '')
+        if not save_path:
+            save_path = SettingsManager.get_default_screenshot_path()
+        self.screenshot_save_path_input.setText(save_path)
+        
+        format_map = {'png': 0, 'jpg': 1, 'bmp': 2}
+        screenshot_format = self.settings_manager.get('screenshot_format', 'png').lower()
+        self.screenshot_format_combo.setCurrentIndex(format_map.get(screenshot_format, 0))
+        
+        # 初始状态设置
+        self.on_screenshot_enabled_toggled(self.screenshot_enabled_check.isChecked())
+    
+    def save_screenshot_settings(self):
+        old_hotkey = self.settings_manager.get('screenshot_hotkey', 'ctrl+alt+a')
+        new_hotkey = self.screenshot_hotkey_input.text().strip()
+        if not new_hotkey:
+            new_hotkey = 'ctrl+alt+a'
+        
+        self.settings_manager.set('screenshot_enabled', self.screenshot_enabled_check.isChecked())
+        self.settings_manager.set('screenshot_hotkey', new_hotkey)
+        
+        action_map = {0: 'annotate', 1: 'clipboard', 2: 'save'}
+        action = action_map.get(self.screenshot_action_combo.currentIndex(), 'annotate')
+        self.settings_manager.set('screenshot_action', action)
+        
+        # 确保保存路径不为空
+        save_path = self.screenshot_save_path_input.text().strip()
+        if not save_path:
+            save_path = SettingsManager.get_default_screenshot_path()
+        self.settings_manager.set('screenshot_save_path', save_path)
+        
+        formats = ['png', 'jpg', 'bmp']
+        self.settings_manager.set('screenshot_format', formats[self.screenshot_format_combo.currentIndex()])
+        
+        # 无论是否热键变化，只要设置变更就更新热键状态
+        self.signal_handler.screenshot_hotkey_changed.emit()
+        
+        QMessageBox.information(self, "成功", "截图设置已保存！")

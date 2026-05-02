@@ -298,15 +298,21 @@ class ClipboardManager(QObject):
 
     def copy_item(self, item):
         try:
-            if item.mime_data:
-                copied_mime = self._deep_copy_mime_data(item.mime_data)
-                if copied_mime:
-                    self.clipboard.setMimeData(copied_mime)
-                else:
+            # 对于图像，直接使用 fallback 更可靠
+            if item.type == ClipboardItem.TYPE_IMAGE:
+                self._fallback_copy(item)
+            elif item.mime_data:
+                try:
+                    copied_mime = self._deep_copy_mime_data(item.mime_data)
+                    if copied_mime:
+                        self.clipboard.setMimeData(copied_mime)
+                    else:
+                        self._fallback_copy(item)
+                except Exception:
                     self._fallback_copy(item)
             else:
                 self._fallback_copy(item)
-        except RuntimeError:
+        except Exception:
             self._fallback_copy(item)
     
     def _fallback_copy(self, item):
