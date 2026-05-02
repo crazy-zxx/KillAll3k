@@ -11,7 +11,7 @@ os.environ["QT_LOGGING_RULES"] = "*=false"
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    
+
     # 设置应用程序图标
     icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo.ico')
     app.setWindowIcon(QIcon(icon_path))
