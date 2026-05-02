@@ -47,6 +47,9 @@ class SearchWindow(QWidget):
         # 在 SearchWindow 中也创建 ClipboardManager 实例，确保设置变更能即时生效
         from clipboard_manager import ClipboardManager
         self.clipboard_manager = ClipboardManager(self.settings_manager)
+        # 创建截图管理器
+        from screenshot import ScreenshotManager
+        self.screenshot_manager = ScreenshotManager(self.settings_manager)
         # 用于跟踪当前注册的热键
         self.current_search_hotkey = None
         self.current_clipboard_hotkey = None
@@ -632,8 +635,9 @@ class SearchWindow(QWidget):
                 print(f"Failed to add screenshot hotkey: {e}")
     
     def take_screenshot(self):
-        """执行截图操作（占位符，后续完善）"""
-        QMessageBox.information(self, "提示", "截图功能即将上线！")
+        """执行截图操作"""
+        self.hide_window()
+        QTimer.singleShot(100, self.screenshot_manager.take_screenshot)
     
     def on_tray_show(self, icon, item):
         self.signal_handler.show_window.emit()
