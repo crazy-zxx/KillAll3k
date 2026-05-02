@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QFileDialog, QMessageBox, QSlider, QStyle, QStyleOptionSlider
 )
 from PyQt6.QtCore import (
-    Qt, QRect, QPoint, QPointF, QSize, pyqtSignal, QRectF, QTimer
+    Qt, QRect, QPoint, QPointF, QSize, pyqtSignal, QRectF, QTimer, QThread
 )
 from PyQt6.QtGui import (
     QPainter, QPen, QColor, QBrush, QPixmap, QImage, QCursor,
@@ -1717,6 +1717,8 @@ class ScreenshotManager:
         self.screenshot_window = None
         self.annotation_editor = None
         self.sticker_windows = []
+        self.ocr_engine = OCREngine(settings_manager)
+        self.ocr_window = None
 
     def take_screenshot(self):
         """开始截图"""
@@ -1778,8 +1780,9 @@ class ScreenshotManager:
 
     def do_ocr(self, image):
         """OCR识别"""
-        # 这里调用OCR模块
-        QMessageBox.information(None, "OCR", "OCR功能开发中...")
+        # 创建OCR结果窗口
+        self.ocr_window = OCRResultWindow(image, self.ocr_engine)
+        self.ocr_window.show()
 
     def create_sticker(self, image):
         """创建贴图"""
@@ -1788,51 +1791,329 @@ class ScreenshotManager:
         sticker.show()
 
 
+class OCRWorker(QThread):
+    """OCR 工作线程
+    在后台线程中处理 OCR 识别"""
+    finished = pyqtSignal(str)
+
+    def __init__(self, ocr_engine, image_arr):
+        super().__init__()
+        self.ocr_engine = ocr_engine
+        self.image_arr = image_arr
+
+    def run(self):
+        """执行 OCR 识别"""
+        result = self.ocr_engine.recognize_from_array(self.image_arr)
+        self.finished.emit(result)
+
+
+class OCRResultWindow(QMainWindow):
+    """OCR结果显示窗口"""
+
+    def __init__(self, image, ocr_engine):
+        super().__init__()
+        self.image = image
+        self.ocr_engine = ocr_engine
+        self.result_text = ""
+        self.ocr_worker = None
+        self.init_ui()
+        self.process_image()
+
+    def init_ui(self):
+        self.setWindowTitle("OCR 文字识别")
+        self.setFixedSize(700, 500)
+        self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
+
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+
+        layout = QVBoxLayout(central_widget)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
+
+        # 标题
+        title_label = QLabel("识别结果")
+        title_label.setFont(QFont("Microsoft YaHei", 14, QFont.Weight.Bold))
+        layout.addWidget(title_label)
+
+        # 文本区域
+        from PyQt6.QtWidgets import QTextEdit
+        self.text_edit = QTextEdit()
+        self.text_edit.setReadOnly(True)
+        self.text_edit.setPlaceholderText("正在识别中...")
+        self.text_edit.setStyleSheet("""
+            QTextEdit {
+                background-color: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 12px;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        """)
+        layout.addWidget(self.text_edit)
+
+        # 按钮区域
+        btn_layout = QHBoxLayout()
+
+        self.copy_btn = QPushButton("📋 复制全部")
+        self.copy_btn.clicked.connect(self.copy_text)
+        self.copy_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3b82f6;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2563eb;
+            }
+            QPushButton:disabled {
+                background-color: #93c5fd;
+            }
+        """)
+
+        self.reocr_btn = QPushButton("🔄 重新识别")
+        self.reocr_btn.clicked.connect(self.reocr)
+        self.reocr_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #6366f1;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #4f46e5;
+            }
+            QPushButton:disabled {
+                background-color: #a5b4fc;
+            }
+        """)
+
+        close_btn = QPushButton("关闭")
+        close_btn.clicked.connect(self.close)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #64748b;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #475569;
+            }
+        """)
+
+        btn_layout.addWidget(self.copy_btn)
+        btn_layout.addWidget(self.reocr_btn)
+        btn_layout.addStretch()
+        btn_layout.addWidget(close_btn)
+        layout.addLayout(btn_layout)
+
+        # 初始禁用按钮
+        self.set_buttons_enabled(False)
+
+    def set_buttons_enabled(self, enabled):
+        """设置按钮状态"""
+        self.copy_btn.setEnabled(enabled)
+        self.reocr_btn.setEnabled(enabled)
+
+    def process_image(self):
+        """处理图像并显示结果 - 使用后台线程"""
+        self.text_edit.clear()
+        self.text_edit.setPlaceholderText("正在识别文字，请稍候...")
+        self.set_buttons_enabled(False)
+
+        # 在主线程完成 QImage 转换（安全的 UI 操作）
+        image_arr = OCREngine.convert_qimage_to_array(self.image)
+
+        # 创建并启动后台线程（只传递 numpy 数组，不涉及 UI 对象）
+        self.ocr_worker = OCRWorker(self.ocr_engine, image_arr)
+        self.ocr_worker.finished.connect(self.on_ocr_finished)
+        self.ocr_worker.start()
+
+    def on_ocr_finished(self, result):
+        """OCR 完成回调"""
+        self.result_text = result
+        self.text_edit.setText(result)
+        self.set_buttons_enabled(True)
+        
+        # 清理线程
+        if self.ocr_worker:
+            self.ocr_worker.deleteLater()
+            self.ocr_worker = None
+
+    def reocr(self):
+        """重新识别"""
+        self.process_image()
+
+    def copy_text(self):
+        """复制文本到剪贴板"""
+        text = self.text_edit.toPlainText()
+        if text:
+            from PyQt6.QtWidgets import QApplication
+            clipboard = QApplication.clipboard()
+            clipboard.setText(text)
+            QMessageBox.information(self, "成功", "已复制到剪贴板！")
+
+    def closeEvent(self, event):
+        """窗口关闭时确保线程被清理"""
+        if self.ocr_worker and self.ocr_worker.isRunning():
+            self.ocr_worker.quit()
+            self.ocr_worker.wait()
+        event.accept()
+
+
+
+# 关闭 PIR / OneDNN，解决你卡顿的核心原因
+os.environ["FLAGS_pir_enable_pir_inference"] = "0"
+os.environ["FLAGS_use_mkldnn"] = "0"
+os.environ["FLAGS_use_onednn"] = "0"
+os.environ["OMP_NUM_THREADS"] = "8"
+os.environ["OPENCV_OPENCL_RUNTIME"] = "null"  # 禁掉opencv加速冲突
+
 class OCREngine:
     """OCR引擎"""
 
-    def __init__(self):
+    def __init__(self, settings_manager=None):
         self.ocr = None
         self.initialized = False
+        self.settings_manager = settings_manager
 
     def init_ocr(self):
         """初始化OCR"""
         try:
             from paddleocr import PaddleOCR
-            self.ocr = PaddleOCR(use_angle_cls=True, lang='ch', show_log=False)
+            
+            # 获取配置的模型路径，为空则使用默认值 None
+            det_model_dir = None
+            rec_model_dir = None
+            
+            if self.settings_manager:
+                det_model_dir = self.settings_manager.get('ocr_det_model_path', '')
+                rec_model_dir = self.settings_manager.get('ocr_rec_model_path', '')
+
+                # 如果是空字符串，设置为 None
+                if det_model_dir == '':
+                    det_model_dir = None
+                if rec_model_dir == '':
+                    rec_model_dir = None
+
+            # PaddleOCR v5 配置
+            # self.ocr = PaddleOCR(
+            #     # 基础设置
+            #     # device="gpu",
+            #     # use_tensorrt=True,
+            #     precision='fp16',
+            #     # enable_hpi=True,
+            #     enable_mkldnn=False,
+            #     cpu_threads=4,
+            #
+            #     use_doc_orientation_classify=False,
+            #     use_doc_unwarping=False,
+            #     use_textline_orientation=False,
+            #
+            #     # 输入优化
+            #     text_det_limit_type="min",
+            #     text_det_limit_side_len=640,
+            #     text_recognition_batch_size=1,
+            #     text_det_thresh = 0.4,
+            #     text_det_box_thresh = 0.7,
+            #     text_det_unclip_ratio = 1.2,
+            #
+            #     text_recognition_model_name="PP-OCRv5_mobile_rec",
+            #     text_detection_model_name="PP-OCRv5_mobile_det",
+            #     text_recognition_model_dir=rec_model_dir,  # 文本识别模型
+            #     text_detection_model_dir=det_model_dir,  # 文本检测模型
+            # )
+
+            self.ocr = PaddleOCR(
+                # 基础提速
+                # device="gpu",
+                # use_tensorrt=True,
+                precision='fp32',
+                # enable_hpi=True,
+                enable_mkldnn=False,
+                cpu_threads=8,
+
+                # 全部关闭无用功能（你现在开的都是拖慢速度的）
+                use_doc_orientation_classify=False,
+                use_doc_unwarping=False,
+                use_textline_orientation=False,
+
+                # 输入优化
+                text_det_limit_type="min",
+                text_det_limit_side_len=640,
+                text_recognition_batch_size=4,
+                text_det_thresh=0.4,
+                text_det_box_thresh=0.7,
+                text_det_unclip_ratio=1.2,
+
+                # 模型（Mobile 轻量版）
+                text_recognition_model_name="PP-OCRv5_mobile_rec",
+                text_detection_model_name="PP-OCRv5_mobile_det",
+                text_recognition_model_dir=rec_model_dir,
+                text_detection_model_dir=det_model_dir,
+            )
+
             self.initialized = True
             return True
         except ImportError:
             return False
+        except Exception as e:
+            print(f"OCR初始化错误: {e}")
+            return False
 
     def recognize(self, image):
-        """识别文字"""
+        """识别文字（兼容旧方法）"""
+        arr = self.convert_qimage_to_array(image)
+        return self.recognize_from_array(arr)
+    
+    @staticmethod
+    def convert_qimage_to_array(image):
+        """将 QImage 转换为 numpy 数组（必须在主线程执行）"""
+        import numpy as np
+        if image.format() != QImage.Format.Format_RGB888:
+            image = image.convertToFormat(QImage.Format.Format_RGB888)
+        
+        width = image.width()
+        height = image.height()
+        ptr = image.bits()
+        ptr.setsize(height * width * 3)
+        arr = np.array(ptr).reshape(height, width, 3)
+        return arr
+    
+    def recognize_from_array(self, image_arr):
+        """从 numpy 数组识别文字（可以在后台线程执行）"""
         if not self.initialized:
             if not self.init_ocr():
-                return "OCR初始化失败，请安装paddleocr"
+                return "OCR初始化失败，请安装paddleocr\n\n安装命令: pip install paddleocr"
 
         try:
-            # 转换为PIL图像
-            from PIL import Image
-            import io
+            # PaddleOCR v5 调用方式
+            result = self.ocr.predict(image_arr)
 
-            # 转换QImage为numpy数组
-            if image.format() != QImage.Format.Format_RGB888:
-                image = image.convertToFormat(QImage.Format.Format_RGB888)
-
-            width = image.width()
-            height = image.height()
-            ptr = image.bits()
-            ptr.setsize(height * width * 3)
-            arr = ptr.asarray().reshape(height, width, 3)
-
-            result = self.ocr.ocr(arr, cls=True)
-
-            if result and result[0]:
-                texts = [line[1][0] for line in result[0]]
-                return '\n'.join(texts)
+            if result and len(result) > 0 and result[0]:
+                # 提取识别到的文字
+                texts = []
+                for line in result[0]['rec_texts']:
+                        texts.append(line)
+                if texts:
+                    return '\n'.join(texts)
             return "未识别到文字"
+        except ImportError as e:
+            return f"缺少必要的库: {str(e)}\n\n请安装: pip install paddleocr numpy"
         except Exception as e:
+            print(e)
             return f"OCR识别出错: {str(e)}"
 
 
