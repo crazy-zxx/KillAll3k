@@ -1,17 +1,9 @@
 {
-  "theme": "dark",
+  "theme": "auto",
   "auto_start": false,
   "show_notification": false,
-  "run_as_admin": false,
-  "ai_models": [
-    {
-      "name": "硅基流动",
-      "api_url": "https://api.siliconflow.cn/v1/chat/completions",
-      "api_key": "sk-rnjtoowowhrmjglpgdqkqbefjyriecdjieqieapprhsbbesf",
-      "model": "Qwen/Qwen3.6-27B",
-      "enabled": true
-    }
-  ],
+  "run_as_admin": true,
+  "ai_models": [],
   "proxy_enabled": false,
   "proxy_address": "",
   "proxy_port": "",
@@ -31,11 +23,9 @@
   "screenshot_enabled": true,
   "screenshot_hotkey": "ctrl+alt+a",
   "screenshot_action": "annotate",
-  "screenshot_save_path": "C:\\Users\\zhao\\Pictures\\Screenshots",
+  "screenshot_save_path": "",
   "screenshot_format": "png",
-  "ocr_api_token": "f40d7ded202e3ea219bea670311fec3bb9f08a7b",
+  "ocr_api_token": "",
   "ocr_api_url": "",
-  "ocr_model": "paddleocr-vl-1.5",
-  "ocr_det_model_path": "C:/Users/zhao/Downloads/PP-OCRv5_mobile_det_infer",
-  "ocr_rec_model_path": "C:/Users/zhao/Downloads/PP-OCRv5_mobile_rec_infer"
+  "ocr_model": "paddleocr-vl-1.5"
 }
