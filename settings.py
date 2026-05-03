@@ -77,7 +77,10 @@ class SettingsManager:
             'screenshot_hotkey': 'ctrl+alt+a',
             'screenshot_action': 'annotate',
             'screenshot_save_path': self.get_default_screenshot_path(),
-            'screenshot_format': 'png'
+            'screenshot_format': 'png',
+            'ocr_api_token': '',
+            'ocr_api_url': '',
+            'ocr_model': 'pp-ocrv5'
         }
         self.settings = self.load_settings()
     
@@ -1989,15 +1992,16 @@ class SettingsWindow(QWidget):
         save_group.setLayout(save_layout)
         layout.addWidget(save_group)
         
-        # OCR 模型配置
-        ocr_group = QGroupBox("OCR 模型配置（Paddle v5）")
+        # OCR 模型配置（在线 API）
+        ocr_group = QGroupBox("OCR 模型配置（在线 API）")
         ocr_layout = QFormLayout()
         ocr_layout.setSpacing(15)
         
-        # 检测模型路径
-        self.ocr_det_model_input = QLineEdit()
-        self.ocr_det_model_input.setPlaceholderText("留空使用默认下载的模型")
-        self.ocr_det_model_input.setStyleSheet("""
+        # API Token
+        self.ocr_api_token_input = QLineEdit()
+        self.ocr_api_token_input.setPlaceholderText("请输入 PaddleOCR API Token")
+        self.ocr_api_token_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.ocr_api_token_input.setStyleSheet("""
             QLineEdit {
                 padding: 8px 12px;
                 border: 1px solid #e2e8f0;
@@ -2006,30 +2010,10 @@ class SettingsWindow(QWidget):
             }
         """)
         
-        browse_det_btn = QPushButton("📁 浏览")
-        browse_det_btn.clicked.connect(self.browse_ocr_det_model)
-        browse_det_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #6b7280;
-                color: white;
-                padding: 8px 16px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #4b5563;
-            }
-        """)
-        
-        det_model_layout = QHBoxLayout()
-        det_model_layout.addWidget(self.ocr_det_model_input)
-        det_model_layout.addWidget(browse_det_btn)
-        
-        # 识别模型路径
-        self.ocr_rec_model_input = QLineEdit()
-        self.ocr_rec_model_input.setPlaceholderText("留空使用默认下载的模型")
-        self.ocr_rec_model_input.setStyleSheet("""
+        # API URL
+        self.ocr_api_url_input = QLineEdit()
+        self.ocr_api_url_input.setPlaceholderText("请输入 PaddleOCR API URL，留空使用默认")
+        self.ocr_api_url_input.setStyleSheet("""
             QLineEdit {
                 padding: 8px 12px;
                 border: 1px solid #e2e8f0;
@@ -2038,31 +2022,29 @@ class SettingsWindow(QWidget):
             }
         """)
         
-        browse_rec_btn = QPushButton("📁 浏览")
-        browse_rec_btn.clicked.connect(self.browse_ocr_rec_model)
-        browse_rec_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #6b7280;
-                color: white;
-                padding: 8px 16px;
-                border: none;
+        # 模型选择
+        self.ocr_model_combo = QComboBox()
+        self.ocr_model_combo.addItems([
+            "PP-OCRv5",
+            "PaddleOCR-VL-1.5",
+            "PaddleOCR-VL"
+        ])
+        self.ocr_model_combo.setStyleSheet("""
+            QComboBox {
+                padding: 8px 12px;
+                border: 1px solid #e2e8f0;
                 border-radius: 6px;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #4b5563;
+                background-color: white;
+                min-height: 30px;
             }
         """)
         
-        rec_model_layout = QHBoxLayout()
-        rec_model_layout.addWidget(self.ocr_rec_model_input)
-        rec_model_layout.addWidget(browse_rec_btn)
-        
-        ocr_desc = QLabel("配置本地 OCR 模型路径，留空则使用 PaddleOCR 默认自动下载的模型：")
+        ocr_desc = QLabel("使用 PaddleOCR 在线 API 进行文字识别，请配置 API Token：")
         ocr_desc.setStyleSheet("color: #64748b; font-size: 13px; margin-bottom: 5px;")
         ocr_layout.addRow(ocr_desc)
-        ocr_layout.addRow("检测模型（det）：", det_model_layout)
-        ocr_layout.addRow("识别模型（rec）：", rec_model_layout)
+        ocr_layout.addRow("API Token：", self.ocr_api_token_input)
+        ocr_layout.addRow("API URL：", self.ocr_api_url_input)
+        ocr_layout.addRow("模型选择：", self.ocr_model_combo)
         
         ocr_group.setLayout(ocr_layout)
         layout.addWidget(ocr_group)
@@ -2151,9 +2133,14 @@ class SettingsWindow(QWidget):
         screenshot_format = self.settings_manager.get('screenshot_format', 'png').lower()
         self.screenshot_format_combo.setCurrentIndex(format_map.get(screenshot_format, 0))
         
-        # 加载 OCR 模型配置
-        self.ocr_det_model_input.setText(self.settings_manager.get('ocr_det_model_path', ''))
-        self.ocr_rec_model_input.setText(self.settings_manager.get('ocr_rec_model_path', ''))
+        # 加载 OCR API 配置
+        self.ocr_api_token_input.setText(self.settings_manager.get('ocr_api_token', ''))
+        self.ocr_api_url_input.setText(self.settings_manager.get('ocr_api_url', ''))
+        
+        # 加载模型选择
+        model_map = {'pp-ocrv5': 0, 'paddleocr-vl-1.5': 1, 'paddleocr-vl': 2}
+        ocr_model = self.settings_manager.get('ocr_model', 'pp-ocrv5').lower()
+        self.ocr_model_combo.setCurrentIndex(model_map.get(ocr_model, 0))
         
         # 初始状态设置
         self.on_screenshot_enabled_toggled(self.screenshot_enabled_check.isChecked())
@@ -2180,9 +2167,13 @@ class SettingsWindow(QWidget):
         formats = ['png', 'jpg', 'bmp']
         self.settings_manager.set('screenshot_format', formats[self.screenshot_format_combo.currentIndex()])
         
-        # 保存 OCR 模型配置
-        self.settings_manager.set('ocr_det_model_path', self.ocr_det_model_input.text().strip())
-        self.settings_manager.set('ocr_rec_model_path', self.ocr_rec_model_input.text().strip())
+        # 保存 OCR API 配置
+        self.settings_manager.set('ocr_api_token', self.ocr_api_token_input.text().strip())
+        self.settings_manager.set('ocr_api_url', self.ocr_api_url_input.text().strip())
+        
+        # 保存模型选择
+        model_map = {0: 'pp-ocrv5', 1: 'paddleocr-vl-1.5', 2: 'paddleocr-vl'}
+        self.settings_manager.set('ocr_model', model_map.get(self.ocr_model_combo.currentIndex(), 'pp-ocrv5'))
         
         # 无论是否热键变化，只要设置变更就更新热键状态
         self.signal_handler.screenshot_hotkey_changed.emit()

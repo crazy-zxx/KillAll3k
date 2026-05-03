@@ -11,10 +11,12 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtGui import (
     QPainter, QPen, QColor, QBrush, QPixmap, QImage, QCursor,
-    QFont, QPolygon, QPolygonF, QPainterPath, QRegion, QMouseEvent
+    QFont, QPolygon, QPolygonF, QPainterPath, QRegion, QMouseEvent, QIcon
 )
 
 from PyQt6.QtGui import QAction
+
+from search import SearchWindow
 
 
 class ClickableLabel(QLabel):
@@ -885,6 +887,7 @@ class AnnotationEditor(QMainWindow):
     save_clicked = pyqtSignal(QImage)
     copy_clicked = pyqtSignal(QImage)
     ocr_clicked = pyqtSignal(QImage)
+    ai_clicked = pyqtSignal(QImage)
     sticker_clicked = pyqtSignal(QImage)
     closed = pyqtSignal()
 
@@ -960,12 +963,17 @@ class AnnotationEditor(QMainWindow):
         for name, tool_type in tools:
             btn = QPushButton(name)
             btn.setCheckable(True)
+            btn.setFixedWidth(60)
             if tool_type == self.current_tool:
                 btn.setChecked(True)
             btn.clicked.connect(lambda checked, t=tool_type, b=btn: self.set_tool(t, b))
             toolbar.addWidget(btn)
 
-        toolbar.addSeparator()
+
+        tmp = QLabel('')
+        tmp.setFixedWidth(20)
+        toolbar.addWidget(tmp)
+
 
         # 颜色块显示（可点击）
         self.color_label = ClickableLabel()
@@ -985,6 +993,10 @@ class AnnotationEditor(QMainWindow):
         self.color_label.clicked.connect(self.choose_color)
         toolbar.addWidget(self.color_label)
 
+        tmp = QLabel('')
+        tmp.setFixedWidth(10)
+        toolbar.addWidget(tmp)
+
         # 线宽
         self.line_spin = QSpinBox()
         self.line_spin.setRange(1, 100)
@@ -993,12 +1005,22 @@ class AnnotationEditor(QMainWindow):
         toolbar.addWidget(QLabel("线宽:"))
         toolbar.addWidget(self.line_spin)
 
-        toolbar.addSeparator()
+        tmp = QLabel('')
+        tmp.setFixedWidth(20)
+        toolbar.addWidget(tmp)
 
         # 操作按钮
         ocr_btn = QPushButton("OCR识别")
         ocr_btn.clicked.connect(self.do_ocr)
         toolbar.addWidget(ocr_btn)
+
+        ai_btn = QPushButton("问AI")
+        ai_btn.clicked.connect(self.do_ai)
+        toolbar.addWidget(ai_btn)
+
+        tmp = QLabel('')
+        tmp.setFixedWidth(60)
+        toolbar.addWidget(tmp)
 
         sticker_btn = QPushButton("贴图")
         sticker_btn.clicked.connect(self.do_sticker)
@@ -1088,6 +1110,11 @@ class AnnotationEditor(QMainWindow):
         """OCR识别"""
         final_image = self.get_final_image()
         self.ocr_clicked.emit(final_image)
+
+    def do_ai(self):
+        """问AI"""
+        final_image = self.get_final_image()
+        self.ai_clicked.emit(final_image)
 
     def do_sticker(self):
         """贴图"""
@@ -1751,6 +1778,7 @@ class ScreenshotManager:
         self.annotation_editor.save_clicked.connect(self.save_image)
         self.annotation_editor.copy_clicked.connect(self.copy_to_clipboard)
         self.annotation_editor.ocr_clicked.connect(self.do_ocr)
+        self.annotation_editor.ai_clicked.connect(self.do_ai)
         self.annotation_editor.sticker_clicked.connect(self.create_sticker)
         self.annotation_editor.show()
 
@@ -1780,9 +1808,17 @@ class ScreenshotManager:
 
     def do_ocr(self, image):
         """OCR识别"""
-        # 创建OCR结果窗口
-        self.ocr_window = OCRResultWindow(image, self.ocr_engine)
+        # 创建OCR结果窗口，设置为模态对话框
+        self.ocr_window = OCRResultWindow(image, self.ocr_engine, parent=self.annotation_editor)
+        self.ocr_window.setWindowModality(Qt.WindowModality.WindowModal)
         self.ocr_window.show()
+
+    def do_ai(self, image):
+        """问AI"""
+        # 创建AI对话框，设置为模态对话框
+        self.ai_window = AIDialog(image, self.settings_manager, parent=self.annotation_editor)
+        self.ai_window.setWindowModality(Qt.WindowModality.WindowModal)
+        self.ai_window.show()
 
     def create_sticker(self, image):
         """创建贴图"""
@@ -1795,7 +1831,6 @@ class OCRWorker(QThread):
     """OCR 工作线程
     在后台线程中处理 OCR 识别"""
     finished = pyqtSignal(str)
-
     def __init__(self, ocr_engine, image_arr):
         super().__init__()
         self.ocr_engine = ocr_engine
@@ -1810,8 +1845,8 @@ class OCRWorker(QThread):
 class OCRResultWindow(QMainWindow):
     """OCR结果显示窗口"""
 
-    def __init__(self, image, ocr_engine):
-        super().__init__()
+    def __init__(self, image, ocr_engine, parent=None):
+        super().__init__(parent)
         self.image = image
         self.ocr_engine = ocr_engine
         self.result_text = ""
@@ -1822,7 +1857,7 @@ class OCRResultWindow(QMainWindow):
     def init_ui(self):
         self.setWindowTitle("OCR 文字识别")
         self.setFixedSize(700, 500)
-        self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
+        self.setWindowFlags(Qt.WindowType.Tool)
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -1944,7 +1979,12 @@ class OCRResultWindow(QMainWindow):
     def on_ocr_finished(self, result):
         """OCR 完成回调"""
         self.result_text = result
-        self.text_edit.setText(result)
+        # 尝试使用 Markdown 渲染
+        try:
+            self.text_edit.setMarkdown(result)
+        except:
+            # 如果 Markdown 渲染失败，回退到纯文本
+            self.text_edit.setText(result)
         self.set_buttons_enabled(True)
         
         # 清理线程
@@ -1973,171 +2013,620 @@ class OCRResultWindow(QMainWindow):
         event.accept()
 
 
+class AIDialog(QMainWindow):
+    """AI对话框"""
 
-# 关闭 PIR / OneDNN，解决你卡顿的核心原因
-os.environ["FLAGS_pir_enable_pir_inference"] = "0"
-os.environ["FLAGS_use_mkldnn"] = "0"
-os.environ["FLAGS_use_onednn"] = "0"
-os.environ["OMP_NUM_THREADS"] = "8"
-os.environ["OPENCV_OPENCL_RUNTIME"] = "null"  # 禁掉opencv加速冲突
+    def __init__(self, image, settings_manager, parent=None):
+        super().__init__(parent)
+        self.image = image
+        self.settings_manager = settings_manager
+        self.current_task = None
+        self.worker = None
+        self.recognized_text = None
+        self.init_ui()
+
+    def init_ui(self):
+        self.setWindowTitle("问AI")
+        self.setFixedSize(700, 600)
+        self.setWindowFlags(Qt.WindowType.Tool)
+
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+
+        layout = QVBoxLayout(central_widget)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
+
+        # 标题
+        title_label = QLabel("问AI")
+        title_label.setFont(QFont("Microsoft YaHei", 14, QFont.Weight.Bold))
+        layout.addWidget(title_label)
+
+        # 模型选择
+        model_layout = QHBoxLayout()
+        model_label = QLabel("选择模型：")
+        model_label.setStyleSheet("font-size: 13px; color: #64748b;")
+        self.model_combo = QComboBox()
+        self.model_combo.setStyleSheet("""
+            QComboBox {
+                padding: 8px 12px;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                background-color: white;
+                min-width: 200px;
+            }
+        """)
+        self.load_models()
+        model_layout.addWidget(model_label)
+        model_layout.addWidget(self.model_combo)
+        model_layout.addStretch()
+        layout.addLayout(model_layout)
+
+        # 结果区域
+        result_label = QLabel("结果：")
+        result_label.setStyleSheet("font-size: 13px; font-weight: 600; color: #1e293b; margin-top: 10px;")
+        layout.addWidget(result_label)
+
+        from PyQt6.QtWidgets import QTextEdit
+        self.result_text = QTextEdit()
+        self.result_text.setReadOnly(True)
+        self.result_text.setPlaceholderText("请选择下方操作开始...")
+        self.result_text.setStyleSheet("""
+            QTextEdit {
+                background-color: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 12px;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        """)
+        layout.addWidget(self.result_text)
+
+        # 底部按钮
+        bottom_layout = QHBoxLayout()
+
+        # 操作按钮（左）
+        self.explain_btn = QPushButton("� 解释图像")
+        self.explain_btn.clicked.connect(lambda: self.start_task("explain"))
+        self.explain_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #10b981;
+                color: white;
+                padding: 10px 16px;
+                border: none;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #059669;
+            }
+            QPushButton:disabled {
+                background-color: #6ee7b7;
+            }
+        """)
+
+        self.ocr_btn = QPushButton("📝 识别文字")
+        self.ocr_btn.clicked.connect(lambda: self.start_task("ocr"))
+        self.ocr_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3b82f6;
+                color: white;
+                padding: 10px 16px;
+                border: none;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2563eb;
+            }
+            QPushButton:disabled {
+                background-color: #93c5fd;
+            }
+        """)
+
+        self.translate_btn = QPushButton("🌐 翻译文字")
+        self.translate_btn.clicked.connect(lambda: self.start_task("translate"))
+        self.translate_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #8b5cf6;
+                color: white;
+                padding: 10px 16px;
+                border: none;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #7c3aed;
+            }
+            QPushButton:disabled {
+                background-color: #c4b5fd;
+            }
+        """)
+
+        bottom_layout.addWidget(self.explain_btn)
+        bottom_layout.addWidget(self.ocr_btn)
+        bottom_layout.addWidget(self.translate_btn)
+        bottom_layout.addStretch()
+
+        # 操作按钮（右）
+        copy_btn = QPushButton("📋 复制")
+        copy_btn.clicked.connect(self.copy_result)
+        copy_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #64748b;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #475569;
+            }
+        """)
+
+        close_btn = QPushButton("关闭")
+        close_btn.clicked.connect(self.close)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #64748b;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #475569;
+            }
+        """)
+
+        bottom_layout.addWidget(copy_btn)
+        bottom_layout.addWidget(close_btn)
+        layout.addLayout(bottom_layout)
+
+    def load_models(self):
+        self.model_combo.clear()
+        ai_models = self.settings_manager.get('ai_models', [])
+        enabled_models = [model for model in ai_models if model.get('enabled', True)]
+        if not enabled_models:
+            self.model_combo.addItem("没有配置模型")
+            self.model_combo.setEnabled(False)
+            return
+
+        for model in enabled_models:
+            self.model_combo.addItem(model['name'], model)
+
+    def set_buttons_enabled(self, enabled):
+        self.explain_btn.setEnabled(enabled)
+        self.ocr_btn.setEnabled(enabled)
+        self.translate_btn.setEnabled(enabled)
+        self.model_combo.setEnabled(enabled)
+
+    def get_proxy_config(self):
+        if not self.settings_manager.get('proxy_enabled'):
+            return None
+
+        proxy_address = self.settings_manager.get('proxy_address')
+        proxy_port = self.settings_manager.get('proxy_port')
+        proxy_username = self.settings_manager.get('proxy_username')
+        proxy_password = self.settings_manager.get('proxy_password')
+
+        if not proxy_address or not proxy_port:
+            return None
+
+        proxy_url = f"{proxy_address}:{proxy_port}"
+
+        if proxy_username and proxy_password:
+            return {
+                'http': f'http://{proxy_username}:{proxy_password}@{proxy_url}',
+                'https': f'http://{proxy_username}:{proxy_password}@{proxy_url}'
+            }
+        else:
+            return {
+                'http': f'http://{proxy_url}',
+                'https': f'http://{proxy_url}'
+            }
+
+    def start_task(self, task_type):
+        self.current_task = task_type
+        self.set_buttons_enabled(False)
+
+        if task_type == "translate" and not self.recognized_text:
+            self.result_text.setPlainText("请先使用 \"识别文字\" 功能识别图中文字！")
+            self.set_buttons_enabled(True)
+            return
+
+        model_data = self.model_combo.currentData()
+        if not model_data:
+            self.result_text.setPlainText("未配置可用的AI模型，请在设置中添加模型！")
+            self.set_buttons_enabled(True)
+            return
+
+        self.result_text.setPlainText("正在处理中...")
+
+        proxy_config = self.get_proxy_config()
+
+        if self.worker and self.worker.isRunning():
+            self.worker.terminate()
+            self.worker.wait()
+
+        self.worker = AIWorker(
+            model_data,
+            self.image,
+            self.recognized_text,
+            task_type,
+            proxy_config
+        )
+        self.worker.finished.connect(self.on_worker_finished)
+        self.worker.error.connect(self.on_worker_error)
+        self.worker.start()
+
+    def on_worker_finished(self, result):
+        if self.current_task == "ocr":
+            self.recognized_text = result
+            # 尝试使用 Markdown 渲染
+            try:
+                self.result_text.setMarkdown(result)
+            except:
+                self.result_text.setPlainText(result)
+        else:
+            try:
+                self.result_text.setMarkdown(result)
+            except:
+                self.result_text.setPlainText(result)
+        self.set_buttons_enabled(True)
+
+    def on_worker_error(self, error):
+        self.result_text.setPlainText(f"错误：{error}")
+        self.set_buttons_enabled(True)
+
+    def copy_result(self):
+        text = self.result_text.toPlainText()
+        if text:
+            clipboard = QApplication.clipboard()
+            clipboard.setText(text)
+            QMessageBox.information(self, "成功", "已复制到剪贴板！")
+
+    def closeEvent(self, event):
+        if self.worker and self.worker.isRunning():
+            self.worker.quit()
+            self.worker.wait()
+        event.accept()
+
+
+class AIWorker(QThread):
+    """AI工作线程"""
+    finished = pyqtSignal(str)
+    error = pyqtSignal(str)
+
+    def __init__(self, model_data, image, recognized_text, task_type, proxy_config):
+        super().__init__()
+        self.model_data = model_data
+        self.image = image
+        self.recognized_text = recognized_text
+        self.task_type = task_type
+        self.proxy_config = proxy_config
+
+    def encode_image_to_base64(self):
+        from PyQt6.QtCore import QBuffer
+        import base64
+
+        buffer = QBuffer()
+        buffer.open(QBuffer.OpenModeFlag.WriteOnly)
+        self.image.save(buffer, "PNG")
+        image_data = buffer.data().toBase64()
+        return image_data.data().decode('utf-8')
+
+    def run(self):
+        try:
+            import requests
+            import json
+
+            api_url = self.model_data['api_url']
+            api_key = self.model_data['api_key']
+            model = self.model_data['model']
+
+            headers = {
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            }
+
+            user_content = None
+
+            if self.task_type == "explain":
+                base64_image = self.encode_image_to_base64()
+                user_content = [
+                    {
+                        "type": "text",
+                        "text": "请详细描述这张图片的内容，包括场景、物体、文字等信息。"
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{base64_image}"
+                        }
+                    }
+                ]
+            elif self.task_type == "ocr":
+                base64_image = self.encode_image_to_base64()
+                user_content = [
+                    {
+                        "type": "text",
+                        "text": "请识别这张图片中的所有文字，准确提取出来。"
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{base64_image}"
+                        }
+                    }
+                ]
+            elif self.task_type == "translate":
+                user_content = f"请将以下文字翻译成中文，保持原意不变：\n\n{self.recognized_text}"
+
+            data = {
+                'model': model,
+                'messages': [
+                    {'role': 'user', 'content': user_content}
+                ],
+                'temperature': 0.7,
+                'stream': False
+            }
+
+            if 'ollama' in api_url.lower() or 'localhost' in api_url.lower():
+                response = requests.post(api_url, json=data, proxies=self.proxy_config, timeout=60)
+            else:
+                response = requests.post(api_url, headers=headers, json=data, proxies=self.proxy_config, timeout=60)
+
+            if response.status_code == 200:
+                result = response.json()
+
+                if 'choices' in result and len(result['choices']) > 0:
+                    ai_response = result['choices'][0]['message']['content']
+                    self.finished.emit(ai_response.strip())
+                elif 'message' in result:
+                    ai_response = result['message']['content']
+                    self.finished.emit(ai_response.strip())
+                else:
+                    self.error.emit(f"无法解析AI响应：\n{str(result)}")
+            else:
+                self.error.emit(f"请求失败，状态码：{response.status_code}\n{response.text}")
+
+        except Exception as e:
+            self.error.emit(f"发生错误：\n{str(e)}")
+
 
 class OCREngine:
     """OCR引擎"""
 
     def __init__(self, settings_manager=None):
-        self.ocr = None
-        self.initialized = False
         self.settings_manager = settings_manager
-
-    def init_ocr(self):
-        """初始化OCR"""
-        try:
-            from paddleocr import PaddleOCR
-            
-            # 获取配置的模型路径，为空则使用默认值 None
-            det_model_dir = None
-            rec_model_dir = None
-            
-            if self.settings_manager:
-                det_model_dir = self.settings_manager.get('ocr_det_model_path', '')
-                rec_model_dir = self.settings_manager.get('ocr_rec_model_path', '')
-
-                # 如果是空字符串，设置为 None
-                if det_model_dir == '':
-                    det_model_dir = None
-                if rec_model_dir == '':
-                    rec_model_dir = None
-
-            # PaddleOCR v5 配置
-            # self.ocr = PaddleOCR(
-            #     # 基础设置
-            #     # device="gpu",
-            #     # use_tensorrt=True,
-            #     precision='fp16',
-            #     # enable_hpi=True,
-            #     enable_mkldnn=False,
-            #     cpu_threads=4,
-            #
-            #     use_doc_orientation_classify=False,
-            #     use_doc_unwarping=False,
-            #     use_textline_orientation=False,
-            #
-            #     # 输入优化
-            #     text_det_limit_type="min",
-            #     text_det_limit_side_len=640,
-            #     text_recognition_batch_size=1,
-            #     text_det_thresh = 0.4,
-            #     text_det_box_thresh = 0.7,
-            #     text_det_unclip_ratio = 1.2,
-            #
-            #     text_recognition_model_name="PP-OCRv5_mobile_rec",
-            #     text_detection_model_name="PP-OCRv5_mobile_det",
-            #     text_recognition_model_dir=rec_model_dir,  # 文本识别模型
-            #     text_detection_model_dir=det_model_dir,  # 文本检测模型
-            # )
-
-            self.ocr = PaddleOCR(
-                # 基础提速
-                # device="gpu",
-                # use_tensorrt=True,
-                precision='fp32',
-                # enable_hpi=True,
-                enable_mkldnn=False,
-                cpu_threads=8,
-
-                # 全部关闭无用功能（你现在开的都是拖慢速度的）
-                use_doc_orientation_classify=False,
-                use_doc_unwarping=False,
-                use_textline_orientation=False,
-
-                # 输入优化
-                text_det_limit_type="min",
-                text_det_limit_side_len=640,
-                text_recognition_batch_size=4,
-                text_det_thresh=0.4,
-                text_det_box_thresh=0.7,
-                text_det_unclip_ratio=1.2,
-
-                # 模型（Mobile 轻量版）
-                text_recognition_model_name="PP-OCRv5_mobile_rec",
-                text_detection_model_name="PP-OCRv5_mobile_det",
-                text_recognition_model_dir=rec_model_dir,
-                text_detection_model_dir=det_model_dir,
-            )
-
-            self.initialized = True
-            return True
-        except ImportError:
-            return False
-        except Exception as e:
-            print(f"OCR初始化错误: {e}")
-            return False
 
     def recognize(self, image):
         """识别文字（兼容旧方法）"""
-        arr = self.convert_qimage_to_array(image)
-        return self.recognize_from_array(arr)
+        # 将 QImage 转换为图片字节流
+        from io import BytesIO
+        byte_stream = BytesIO()
+        image.save(byte_stream, format="PNG")
+        return self.recognize_from_bytes(byte_stream.getvalue())
     
-    @staticmethod
-    def convert_qimage_to_array(image):
-        """将 QImage 转换为 numpy 数组（必须在主线程执行）"""
-        import numpy as np
-        if image.format() != QImage.Format.Format_RGB888:
-            image = image.convertToFormat(QImage.Format.Format_RGB888)
+    def recognize_from_bytes(self, image_bytes):
+        """从图片字节流识别文字"""
+        import requests
+        import json
+        import time
+        from io import BytesIO
+
+        if not self.settings_manager:
+            return "未设置配置管理器"
+
+        # 获取配置
+        api_token = self.settings_manager.get('ocr_api_token', '')
+        api_url = self.settings_manager.get('ocr_api_url', '')
+        model = self.settings_manager.get('ocr_model', 'pp-ocrv5')
+
+        if not api_token:
+            return "请先在设置中配置PaddleOCR API Token"
+
+        # 默认API URL
+        if not api_url:
+            api_url = "https://paddleocr.aistudio-app.com/api/v2/ocr/jobs"
+
+        # 模型名称映射（保持与下拉框对应）
+        model_map = {
+            'pp-ocrv5': 'PP-OCRv5',
+            'paddleocr-vl-1.5': 'PaddleOCR-VL-1.5',
+            'paddleocr-vl': 'PaddleOCR-VL'
+        }
+        model = model_map.get(model, 'PP-OCRv5')
+
+        # 构建可选参数
+        if model == 'PP-OCRv5':
+            optional_payload = {
+                "markdownIgnoreLabels": [],
+                "useDocOrientationClassify": False,
+                "useDocUnwarping": False,
+                "useTextlineOrientation": False,
+                "textDetLimitType": "min",
+                "textDetLimitSideLen": 64,
+                "textDetThresh": 0.3,
+                "textDetBoxThresh": 0.6,
+                "textDetUnclipRatio": 1.5,
+                "textRecScoreThresh": 0,
+                "parseLanguage": "default"
+            }
+        else:
+            optional_payload = {
+                "markdownIgnoreLabels": [
+                    "header",
+                    "header_image",
+                    "footer",
+                    "footer_image",
+                    "number",
+                    "footnote",
+                    "aside_text"
+                ],
+                "useDocOrientationClassify": False,
+                "useDocUnwarping": False,
+                "useLayoutDetection": True,
+                "useChartRecognition": False,
+                "useSealRecognition": False,
+                "useOcrForImageBlock": False,
+                "mergeTables": True,
+                "relevelTitles": True,
+                "layoutShapeMode": "auto",
+                "promptLabel": "ocr",
+                "repetitionPenalty": 1,
+                "temperature": 0,
+                "topP": 1,
+                "minPixels": 147384,
+                "maxPixels": 2822400,
+                "layoutNms": True,
+                "restructurePages": True
+            }
+
+        headers = {
+            "Authorization": f"bearer {api_token}",
+        }
+
+        # 准备请求数据
+        data = {
+            "model": model,
+            "optionalPayload": json.dumps(optional_payload)
+        }
+
+        print(data)
         
-        width = image.width()
-        height = image.height()
-        ptr = image.bits()
-        ptr.setsize(height * width * 3)
-        arr = np.array(ptr).reshape(height, width, 3)
-        return arr
-    
-    def recognize_from_array(self, image_arr):
-        """从 numpy 数组识别文字（可以在后台线程执行）"""
-        if not self.initialized:
-            if not self.init_ocr():
-                return "OCR初始化失败，请安装paddleocr\n\n安装命令: pip install paddleocr"
+        # 准备文件
+        files = {"file": ("image.png", BytesIO(image_bytes), "image/png")}
 
         try:
-            # PaddleOCR v5 调用方式
-            result = self.ocr.predict(image_arr)
+            # 1. 提交任务
+            job_response = requests.post(api_url, headers=headers, data=data, files=files, timeout=30)
+            
+            if job_response.status_code != 200:
+                return f"API请求失败: {job_response.status_code} - {job_response.text}"
+            
+            job_data = job_response.json()
+            job_id = job_data["data"]["jobId"]
 
-            if result and len(result) > 0 and result[0]:
-                # 提取识别到的文字
-                texts = []
-                for line in result[0]['rec_texts']:
-                        texts.append(line)
-                if texts:
-                    return '\n'.join(texts)
+            # 2. 轮询任务状态
+            jsonl_url = ""
+            while True:
+                job_result_response = requests.get(f"{api_url}/{job_id}", headers=headers, timeout=30)
+                if job_result_response.status_code != 200:
+                    return f"获取任务状态失败: {job_result_response.status_code}"
+                
+                result_data = job_result_response.json()
+                state = result_data["data"]["state"]
+                
+                if state == 'pending':
+                    time.sleep(2)
+                    continue
+                elif state == 'running':
+                    time.sleep(2)
+                    continue
+                elif state == 'done':
+                    jsonl_url = result_data["data"]["resultUrl"]["jsonUrl"]
+                    break
+                elif state == "failed":
+                    error_msg = result_data["data"].get("errorMsg", "未知错误")
+                    return f"任务失败: {error_msg}"
+            
+            # 3. 获取结果
+            jsonl_response = requests.get(jsonl_url, timeout=30)
+            jsonl_response.raise_for_status()
+            
+            # 解析JSONL
+            lines = jsonl_response.text.strip().split('\n')
+            print(lines)
+            all_texts = []
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                result = json.loads(line)["result"]
+                
+                if model == 'PP-OCRv5':
+                    # PP-OCRv5 使用 ocrResults
+                    if "ocrResults" in result:
+                        for res in result["ocrResults"]:
+                            if "prunedResult" in res:
+                                # 从 prunedResult 中提取文本
+                                pruned = res["prunedResult"]
+                                if "rec_texts" in pruned:
+                                    # 格式 1: rec_texts 数组
+                                    all_texts.extend(pruned["rec_texts"])
+                                elif isinstance(pruned, list):
+                                    # 格式 2: prunedResult 直接是结果数组
+                                    for item in pruned:
+                                        if "text" in item:
+                                            all_texts.append(item["text"])
+                                        elif "rec_text" in item:
+                                            all_texts.append(item["rec_text"])
+                else:
+                    # VL 模型使用 layoutParsingResults
+                    if "layoutParsingResults" in result:
+                        for res in result["layoutParsingResults"]:
+                            if "markdown" in res and "text" in res["markdown"]:
+                                all_texts.append(res["markdown"]["text"])
+            
+            if all_texts:
+                return '\n'.join(all_texts)
+            
             return "未识别到文字"
-        except ImportError as e:
-            return f"缺少必要的库: {str(e)}\n\n请安装: pip install paddleocr numpy"
+            
+        except requests.exceptions.Timeout:
+            return "请求超时，请检查网络连接"
+        except requests.exceptions.RequestException as e:
+            return f"网络请求错误: {str(e)}"
         except Exception as e:
             print(e)
             return f"OCR识别出错: {str(e)}"
+    
+    # 保留兼容性方法
+    @staticmethod
+    def convert_qimage_to_array(image):
+        """PyQt6 最安全 QImage → numpy 数组（永无扭曲/报错）"""
+        import numpy as np
+        from PyQt6.QtGui import QImage
+        import sys
+
+        # 强制转成标准格式
+        image = image.convertToFormat(QImage.Format.Format_RGB888)
+
+        h = image.height()
+        w = image.width()
+        stride = image.bytesPerLine()
+
+        # 🚀 唯一 100% 安全的取数据方式（解决 size=1 所有报错）
+        ptr = image.bits()
+        ptr.setsize(sys.maxsize)  # 关键！强制解锁内存限制
+
+        # 构造数组
+        arr = np.ndarray((h, stride // 3, 3), np.uint8, buffer=ptr)
+        arr = arr[:, :w, :].copy()  # 裁剪 + 复制，避免内存失效
+
+        return arr
+    
+    def recognize_from_array(self, image_arr):
+        """从 numpy 数组识别文字（保留兼容性）"""
+        # 将 numpy 数组转换为图片字节流
+        from io import BytesIO
+        import numpy as np
+        from PIL import Image
+        
+        image = Image.fromarray(np.uint8(image_arr))
+        byte_stream = BytesIO()
+        image.save(byte_stream, format="PNG")
+        return self.recognize_from_bytes(byte_stream.getvalue())
 
 
-class TranslationEngine:
-    """翻译引擎"""
-
-    def __init__(self, settings_manager):
-        self.settings_manager = settings_manager
-
-    def translate(self, text, source_lang='auto', target_lang='zh'):
-        """翻译文本"""
-        # 这里可以实现百度、有道、Google等翻译API
-        # 暂时返回占位符
-        return f"[翻译结果] {text}"
-
-
-class AIDialogEngine:
-    """AI对话引擎"""
-
-    def __init__(self, settings_manager):
-        self.settings_manager = settings_manager
-
-    def chat(self, prompt, image=None):
-        """AI对话"""
-        # 这里可以调用配置的AI模型
-        # 暂时返回占位符
-        return "[AI回复] 正在处理中..."

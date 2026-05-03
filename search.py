@@ -538,8 +538,9 @@ class SearchWindow(QWidget):
         )
         self.tray_icon = pystray.Icon("KillAll3k", icon_image, "KillAll3k", menu)
         threading.Thread(target=self.tray_icon.run, daemon=True).start()
-    
-    def create_tray_icon(self):
+
+    @staticmethod
+    def create_tray_icon():
         width, height = 64, 64
         # 完全透明的背景
         image = Image.new('RGBA', (width, height), (0, 0, 0, 0))
