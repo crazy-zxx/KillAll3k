@@ -324,8 +324,8 @@ class ThemeManager:
             QComboBox::down-arrow {{
                 width: 0;
                 height: 0;
-                border-left: 4px solid ;
-                border-right: 4px solid ;
+                border-left: 4px solid  {colors['base']};
+                border-right: 4px solid  {colors['base']};
                 border-top: 6px solid {colors['text_secondary']};
                 subcontrol-origin: padding;
                 subcontrol-position: right center;
@@ -479,6 +479,7 @@ class ThemeManager:
         colors = self.get_colors()
         return f"""
             QListWidget {{
+                outline: none; 
                 background-color: {colors['surface']};
                 border-right: 1px solid {colors['border']};
                 font-size: 14px;

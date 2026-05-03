@@ -1111,15 +1111,15 @@ class AnnotationEditor(QMainWindow):
                 background-color: {colors['hover']};
             }}
             QSpinBox::up-arrow {{
-                border-left: 5px solid ;
-                border-right: 5px solid ;
+                border-left: 5px solid {colors['base']};
+                border-right: 5px solid {colors['base']};
                 border-bottom: 6px solid {colors['base_text']};
                 width: 0;
                 height: 0;
             }}
             QSpinBox::down-arrow {{
-                border-left: 5px solid ;
-                border-right: 5px solid ;
+                border-left: 5px solid {colors['base']};
+                border-right: 5px solid {colors['base']};
                 border-top: 6px solid {colors['base_text']};
                 width: 0;
                 height: 0;
@@ -2443,8 +2443,8 @@ class AIDialog(QMainWindow):
             }}
             QComboBox::down-arrow {{
                 image: none;
-                border-left: 5px solid ;
-                border-right: 5px solid ;
+                border-left: 5px solid {colors['base']};
+                border-right: 5px solid {colors['base']};
                 border-top: 6px solid {colors['base_text']};
                 width: 0;
                 height: 0;

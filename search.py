@@ -157,6 +157,7 @@ class SearchWindow(QWidget):
         colors = self.theme_manager.get_colors()
         self.app_list.setStyleSheet(f"""
             QListWidget {{
+                outline: none; 
                 background-color: {colors['window']};
                 color: {colors['window_text']};
                 border: 1px solid {colors['border']};
@@ -175,6 +176,15 @@ class SearchWindow(QWidget):
             }}
             QListWidget::item:hover:!selected {{
                 background-color: {colors['hover']};
+            }}
+            QListWidget QScrollArea {{
+                background-color: transparent;
+                border: none;
+            }}
+            QListWidget QScrollBar:vertical {{
+                width: 8px;
+                background-color: {colors['base']};
+                border-radius: 4px;
             }}
         """)
     
