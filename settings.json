@@ -1,8 +1,8 @@
 {
-  "theme": "auto",
+  "theme": "dark",
   "auto_start": false,
   "show_notification": false,
-  "run_as_admin": true,
+  "run_as_admin": false,
   "ai_models": [],
   "proxy_enabled": false,
   "proxy_address": "",

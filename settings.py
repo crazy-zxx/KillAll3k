@@ -1,16 +1,19 @@
-import sys
-import os
-import json
 import ctypes
+import json
+import os
+import subprocess
+import sys
+import winreg
 
 import requests
+from PyQt6.QtCore import Qt, pyqtSignal, QObject
+from PyQt6.QtGui import QPalette, QColor, QFont
+from PyQt6.QtWidgets import QApplication
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QCheckBox, QGroupBox,
     QListWidget, QListWidgetItem, QStackedWidget, QLineEdit, QPushButton, QScrollArea,
     QFormLayout, QMessageBox, QFrame, QFileDialog
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QObject
-from PyQt6.QtGui import QPalette, QColor, QFont
 
 
 class SignalHandler(QObject):
@@ -112,7 +115,7 @@ class ThemeManager:
     
     def is_system_dark(self):
         try:
-            import winreg
+
             registry = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
             key = winreg.OpenKey(registry, r'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize')
             value, _ = winreg.QueryValueEx(key, 'AppsUseLightTheme')
@@ -127,7 +130,7 @@ class ThemeManager:
     
     def apply_theme(self, theme):
         self.current_theme = theme
-        from PyQt6.QtWidgets import QApplication
+
         app = QApplication.instance()
         if not app:
             return
@@ -178,8 +181,8 @@ class ThemeManager:
                 'button': '#334155',
                 'button_text': '#e2e8f0',
                 'border': '#475569',
-                'highlight': '#60a5fa',
-                'highlight_text': '#0f172a',
+                'highlight': '#516F9C',
+                'highlight_text': '#ffffff',
                 'hover': '#3b4a60',
                 'surface': '#2d3748',
                 'text_secondary': '#94a3b8',
@@ -198,7 +201,7 @@ class ThemeManager:
                 'button_text': '#0f172a',
                 'border': '#e2e8f0',
                 'highlight': '#3b82f6',
-                'highlight_text': '#ffffff',
+                'highlight_text': '#000000',
                 'hover': '#e2e8f0',
                 'surface': '#ffffff',
                 'text_secondary': '#64748b',
@@ -509,7 +512,6 @@ class AutoStartManager:
     
     def get_auto_start(self):
         try:
-            import winreg
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, self.registry_path, 0, winreg.KEY_READ)
             winreg.QueryValueEx(key, self.app_name)
             winreg.CloseKey(key)
@@ -528,7 +530,7 @@ class AutoStartManager:
     
     def set_auto_start(self, enable):
         try:
-            import winreg
+
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, self.registry_path, 0, winreg.KEY_WRITE)
             if enable:
                 exe_path = self.get_executable_path()
@@ -1697,8 +1699,6 @@ class SettingsWindow(QWidget):
             self.everything_dll_input.setText(file_path)
     
     def start_everything(self):
-        import os
-        import subprocess
         
         everything_path = self.everything_path_input.text().strip()
         
@@ -2019,13 +2019,11 @@ class SettingsWindow(QWidget):
         file_path, _ = QFileDialog.getOpenFileName(self, "选择检测模型文件", "", "模型文件 (*.pdmodel *.pdiparams)")
         if file_path:
             # 如果用户选择的是模型文件，我们需要取目录路径
-            import os
             self.ocr_det_model_input.setText(os.path.dirname(file_path))
     
     def browse_ocr_rec_model(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "选择识别模型文件", "", "模型文件 (*.pdmodel *.pdiparams)")
         if file_path:
-            import os
             self.ocr_rec_model_input.setText(os.path.dirname(file_path))
     
     def load_screenshot_settings(self):

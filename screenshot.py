@@ -1,20 +1,32 @@
-import sys
-import os
+import ctypes
+import json
 import math
+import os
+import sys
+import time
+from ctypes import wintypes
+from datetime import datetime
+from io import BytesIO
+
+import numpy as np
+import requests
+import win32gui
+from PIL import Image
+from PyQt6.QtCore import QBuffer
+from PyQt6.QtCore import (
+    Qt, QRect, QPoint, QPointF, pyqtSignal, QRectF, QThread
+)
+from PyQt6.QtGui import QAction, QFontMetrics
+from PyQt6.QtGui import QCursor
+from PyQt6.QtGui import (
+    QPainter, QPen, QColor, QBrush, QPixmap, QImage,
+    QFont, QPolygonF, QPainterPath,
+)
+from PyQt6.QtWidgets import QMenu, QSlider, QWidgetAction
 from PyQt6.QtWidgets import (
     QWidget, QApplication, QMainWindow, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QToolBar, QColorDialog, QSpinBox, QComboBox,
-    QFileDialog, QMessageBox, QSlider, QStyle, QStyleOptionSlider
+    QPushButton, QLabel, QToolBar, QColorDialog, QSpinBox, QComboBox, QTextEdit, QLineEdit, QScrollArea
 )
-from PyQt6.QtCore import (
-    Qt, QRect, QPoint, QPointF, QSize, pyqtSignal, QRectF, QTimer, QThread
-)
-from PyQt6.QtGui import (
-    QPainter, QPen, QColor, QBrush, QPixmap, QImage, QCursor,
-    QFont, QPolygon, QPolygonF, QPainterPath, QRegion, QMouseEvent, QIcon
-)
-
-from PyQt6.QtGui import QAction
 
 
 class ClickableLabel(QLabel):
@@ -25,15 +37,6 @@ class ClickableLabel(QLabel):
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
         super().mousePressEvent(event)
-
-
-try:
-    import win32gui
-    import win32con
-
-    HAS_WIN32 = True
-except ImportError:
-    HAS_WIN32 = False
 
 
 class ScreenshotWindow(QWidget):
@@ -103,16 +106,13 @@ class ScreenshotWindow(QWidget):
         self.dpi_scale = self.get_dpi_scale()
 
         # 检测窗口
-        if HAS_WIN32:
-            self.detect_windows()
+        self.detect_windows()
 
         self.update()
 
     def get_dpi_scale(self):
         """获取准确的 DPI 缩放比例"""
         try:
-            import ctypes
-            from ctypes import wintypes
 
             # 尝试使用 Windows API 获取 DPI
             user32 = ctypes.windll.user32
@@ -145,9 +145,6 @@ class ScreenshotWindow(QWidget):
             if win32gui.IsWindowVisible(hwnd):
                 try:
                     # 尝试使用 DwmGetWindowAttribute 获取更准确的窗口边界（排除阴影）
-                    import ctypes
-                    from ctypes import wintypes
-
                     dwmapi = ctypes.windll.dwmapi
                     DWMWA_EXTENDED_FRAME_BOUNDS = 9
 
@@ -744,7 +741,6 @@ class TextAnnotation(AnnotationItem):
             return QRect(self.points[0], self.points[1]).normalized()
         elif len(self.points) == 1:
             # 兼容旧的格式
-            from PyQt6.QtGui import QFontMetrics
             metrics = QFontMetrics(self.font)
             text_width = metrics.horizontalAdvance(self.text) if self.text else 100
             text_height = metrics.height()
@@ -768,7 +764,6 @@ class TextAnnotation(AnnotationItem):
             # 使用边界的中心绘制文字
             rect = QRect(self.points[0], self.points[1]).normalized()
             # 垂直居中
-            from PyQt6.QtGui import QFontMetrics
             metrics = QFontMetrics(self.font)
             text_height = metrics.height()
             center_y = rect.center().y() + text_height // 3
@@ -917,9 +912,6 @@ class AnnotationEditor(QMainWindow):
     def get_dpi_scale(self):
         """获取准确的 DPI 缩放比例"""
         try:
-            import ctypes
-            from ctypes import wintypes
-
             # 尝试使用 Windows API 获取 DPI
             user32 = ctypes.windll.user32
             user32.SetProcessDPIAware()
@@ -1024,8 +1016,6 @@ class AnnotationEditor(QMainWindow):
         toolbar.addWidget(self.save_btn)
 
         # 滚动区域
-        from PyQt6.QtWidgets import QScrollArea
-
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(False)  # 保持画布固定大小
 
@@ -1274,7 +1264,6 @@ class AnnotationCanvas(QWidget):
         self.original_points = []
 
         # 内联文字编辑框
-        from PyQt6.QtWidgets import QLineEdit
         self.text_edit = QLineEdit(self)
         self.text_edit.setStyleSheet("""
             QLineEdit {
@@ -1735,8 +1724,6 @@ class StickerWindow(QWidget):
 
     def contextMenuEvent(self, event):
         """右键菜单"""
-        from PyQt6.QtWidgets import QMenu, QSlider, QWidgetAction
-        from PyQt6.QtGui import QCursor
 
         menu = QMenu(self)
 
@@ -1903,7 +1890,7 @@ class ScreenshotManager:
 
         file_path = os.path.join(save_path, f"screenshot_{self.get_timestamp()}.png")
         image.save(file_path)
-        
+
         # 保存完成后关闭编辑窗口
         if hasattr(self, 'annotation_editor') and self.annotation_editor:
             self.annotation_editor.close()
@@ -1911,7 +1898,6 @@ class ScreenshotManager:
 
     def get_timestamp(self):
         """获取时间戳"""
-        from datetime import datetime
         return datetime.now().strftime('%Y%m%d_%H%M%S')
 
     def do_ocr(self, image):
@@ -1939,6 +1925,7 @@ class OCRWorker(QThread):
     """OCR 工作线程
     在后台线程中处理 OCR 识别"""
     finished = pyqtSignal(str)
+
     def __init__(self, ocr_engine, image_arr):
         super().__init__()
         self.ocr_engine = ocr_engine
@@ -1982,7 +1969,6 @@ class OCRResultWindow(QMainWindow):
         layout.addWidget(title_label)
 
         # 文本区域
-        from PyQt6.QtWidgets import QTextEdit
         self.text_edit = QTextEdit()
         self.text_edit.setReadOnly(True)
         self.text_edit.setPlaceholderText("正在识别中...")
@@ -2075,7 +2061,7 @@ class OCRResultWindow(QMainWindow):
             # 如果 Markdown 渲染失败，回退到纯文本
             self.text_edit.setText(result)
         self.set_buttons_enabled(True)
-        
+
         # 清理线程
         if self.ocr_worker:
             self.ocr_worker.deleteLater()
@@ -2089,7 +2075,6 @@ class OCRResultWindow(QMainWindow):
         """复制文本到剪贴板"""
         text = self.text_edit.toPlainText()
         if text:
-            from PyQt6.QtWidgets import QApplication
             clipboard = QApplication.clipboard()
             clipboard.setText(text)
             # QMessageBox.information(self, "成功", "已复制到剪贴板！")
@@ -2099,17 +2084,17 @@ class OCRResultWindow(QMainWindow):
         if not self.theme_manager:
             return
         colors = self.theme_manager.get_colors()
-        
+
         # 设置窗口背景
         self.setStyleSheet(f"""
             QMainWindow {{
                 background-color: {colors['window']};
             }}
         """)
-        
+
         # 设置标题标签
         self.findChild(QLabel).setStyleSheet(f"color: {colors['window_text']};")
-        
+
         # 设置文本区域
         self.text_edit.setStyleSheet(f"""
             QTextEdit {{
@@ -2122,7 +2107,7 @@ class OCRResultWindow(QMainWindow):
                 line-height: 1.6;
             }}
         """)
-        
+
         # 设置重新识别按钮
         self.reocr_btn.setStyleSheet(f"""
             QPushButton {{
@@ -2142,7 +2127,7 @@ class OCRResultWindow(QMainWindow):
                 color: {colors['text_secondary']};
             }}
         """)
-        
+
         # 设置复制按钮
         self.copy_btn.setStyleSheet(f"""
             QPushButton {{
@@ -2159,7 +2144,7 @@ class OCRResultWindow(QMainWindow):
                 border-color: {colors['highlight']};
             }}
         """)
-    
+
     def closeEvent(self, event):
         """窗口关闭时确保线程被清理"""
         if self.ocr_worker and self.ocr_worker.isRunning():
@@ -2224,7 +2209,6 @@ class AIDialog(QMainWindow):
         result_label.setStyleSheet("font-size: 13px; font-weight: 600; color: #1e293b; margin-top: 10px;")
         layout.addWidget(result_label)
 
-        from PyQt6.QtWidgets import QTextEdit
         self.result_text = QTextEdit()
         self.result_text.setReadOnly(True)
         self.result_text.setPlaceholderText("请选择下方操作开始...")
@@ -2431,18 +2415,18 @@ class AIDialog(QMainWindow):
         if not self.theme_manager:
             return
         colors = self.theme_manager.get_colors()
-        
+
         # 设置窗口背景
         self.setStyleSheet(f"""
             QMainWindow {{
                 background-color: {colors['window']};
             }}
         """)
-        
+
         # 设置所有标签
         for label in self.findChildren(QLabel):
             label.setStyleSheet(f"color: {colors['window_text']};")
-        
+
         # 设置模型下拉框
         self.model_combo.setStyleSheet(f"""
             QComboBox {{
@@ -2473,7 +2457,7 @@ class AIDialog(QMainWindow):
                 selection-color: {colors['highlight_text']};
             }}
         """)
-        
+
         # 设置结果文本区域
         self.result_text.setStyleSheet(f"""
             QTextEdit {{
@@ -2486,7 +2470,7 @@ class AIDialog(QMainWindow):
                 line-height: 1.6;
             }}
         """)
-        
+
         # 设置解释图像按钮
         self.explain_btn.setStyleSheet(f"""
             QPushButton {{
@@ -2506,7 +2490,7 @@ class AIDialog(QMainWindow):
                 color: {colors['text_secondary']};
             }}
         """)
-        
+
         # 设置识别文字按钮
         self.ocr_btn.setStyleSheet(f"""
             QPushButton {{
@@ -2526,7 +2510,7 @@ class AIDialog(QMainWindow):
                 color: {colors['text_secondary']};
             }}
         """)
-        
+
         # 设置翻译文字按钮
         self.translate_btn.setStyleSheet(f"""
             QPushButton {{
@@ -2546,7 +2530,7 @@ class AIDialog(QMainWindow):
                 color: {colors['text_secondary']};
             }}
         """)
-        
+
         # 设置复制按钮
         for btn in self.findChildren(QPushButton):
             if btn.text() == "📋 复制":
@@ -2565,7 +2549,7 @@ class AIDialog(QMainWindow):
                         border-color: {colors['highlight']};
                     }}
                 """)
-    
+
     def copy_result(self):
         text = self.result_text.toPlainText()
         if text:
@@ -2594,8 +2578,6 @@ class AIWorker(QThread):
         self.proxy_config = proxy_config
 
     def encode_image_to_base64(self):
-        from PyQt6.QtCore import QBuffer
-        import base64
 
         buffer = QBuffer()
         buffer.open(QBuffer.OpenModeFlag.WriteOnly)
@@ -2605,9 +2587,6 @@ class AIWorker(QThread):
 
     def run(self):
         try:
-            import requests
-            import json
-
             api_url = self.model_data['api_url']
             api_key = self.model_data['api_key']
             model = self.model_data['model']
@@ -2691,17 +2670,12 @@ class OCREngine:
     def recognize(self, image):
         """识别文字（兼容旧方法）"""
         # 将 QImage 转换为图片字节流
-        from io import BytesIO
         byte_stream = BytesIO()
         image.save(byte_stream, format="PNG")
         return self.recognize_from_bytes(byte_stream.getvalue())
-    
+
     def recognize_from_bytes(self, image_bytes):
         """从图片字节流识别文字"""
-        import requests
-        import json
-        import time
-        from io import BytesIO
 
         if not self.settings_manager:
             return "未设置配置管理器"
@@ -2787,10 +2761,10 @@ class OCREngine:
         try:
             # 1. 提交任务
             job_response = requests.post(api_url, headers=headers, data=data, files=files, timeout=30)
-            
+
             if job_response.status_code != 200:
                 return f"API请求失败: {job_response.status_code} - {job_response.text}"
-            
+
             job_data = job_response.json()
             job_id = job_data["data"]["jobId"]
 
@@ -2800,10 +2774,10 @@ class OCREngine:
                 job_result_response = requests.get(f"{api_url}/{job_id}", headers=headers, timeout=30)
                 if job_result_response.status_code != 200:
                     return f"获取任务状态失败: {job_result_response.status_code}"
-                
+
                 result_data = job_result_response.json()
                 state = result_data["data"]["state"]
-                
+
                 if state == 'pending':
                     time.sleep(2)
                     continue
@@ -2816,21 +2790,21 @@ class OCREngine:
                 elif state == "failed":
                     error_msg = result_data["data"].get("errorMsg", "未知错误")
                     return f"任务失败: {error_msg}"
-            
+
             # 3. 获取结果
             jsonl_response = requests.get(jsonl_url, timeout=30)
             jsonl_response.raise_for_status()
-            
+
             # 解析JSONL
             lines = jsonl_response.text.strip().split('\n')
             all_texts = []
-            
+
             for line in lines:
                 line = line.strip()
                 if not line:
                     continue
                 result = json.loads(line)["result"]
-                
+
                 if model == 'PP-OCRv5':
                     # PP-OCRv5 使用 ocrResults
                     if "ocrResults" in result:
@@ -2854,12 +2828,12 @@ class OCREngine:
                         for res in result["layoutParsingResults"]:
                             if "markdown" in res and "text" in res["markdown"]:
                                 all_texts.append(res["markdown"]["text"])
-            
+
             if all_texts:
                 return '\n'.join(all_texts)
-            
+
             return "未识别到文字"
-            
+
         except requests.exceptions.Timeout:
             return "请求超时，请检查网络连接"
         except requests.exceptions.RequestException as e:
@@ -2867,14 +2841,11 @@ class OCREngine:
         except Exception as e:
             print(e)
             return f"OCR识别出错: {str(e)}"
-    
+
     # 保留兼容性方法
     @staticmethod
     def convert_qimage_to_array(image):
         """PyQt6 最安全 QImage → numpy 数组（永无扭曲/报错）"""
-        import numpy as np
-        from PyQt6.QtGui import QImage
-        import sys
 
         # 强制转成标准格式
         image = image.convertToFormat(QImage.Format.Format_RGB888)
@@ -2892,17 +2863,12 @@ class OCREngine:
         arr = arr[:, :w, :].copy()  # 裁剪 + 复制，避免内存失效
 
         return arr
-    
+
     def recognize_from_array(self, image_arr):
         """从 numpy 数组识别文字（保留兼容性）"""
         # 将 numpy 数组转换为图片字节流
-        from io import BytesIO
-        import numpy as np
-        from PIL import Image
-        
+
         image = Image.fromarray(np.uint8(image_arr))
         byte_stream = BytesIO()
         image.save(byte_stream, format="PNG")
         return self.recognize_from_bytes(byte_stream.getvalue())
-
-

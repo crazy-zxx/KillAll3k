@@ -1,4 +1,3 @@
-import sys
 import os
 import webbrowser
 import time
@@ -7,7 +6,7 @@ from PyQt6.QtWidgets import (
     QScrollArea, QFrame, QLabel, QCheckBox, QMenu,
     QApplication, QDialog, QTextEdit, QComboBox, QMessageBox
 )
-from PyQt6.QtCore import Qt, QSize, QPoint, pyqtSignal, QMimeData, QTimer, QThread
+from PyQt6.QtCore import Qt, pyqtSignal, QMimeData, QTimer, QThread
 from PyQt6.QtGui import QPainter, QBrush, QColor, QPixmap, QDrag, QPen, QCursor, QIcon
 from clipboard_manager import ClipboardManager, ClipboardItem
 from screenshot import AnnotationEditor
@@ -470,7 +469,7 @@ class ClipboardCardWidget(QWidget):
                 # 创建一个稍微浅一点的高亮色作为选中背景
                 base_color = QColor(colors['highlight'])
                 h, s, v, a = base_color.getHsv()
-                bg_color = QColor.fromHsv(h, max(s - 30, 100), min(v + 30, 255), 50)
+                bg_color = QColor.fromHsv(h, max(s - 20, 100), min(v + 20, 255), 50)
             else:
                 bg_color = QColor(219, 234, 254)  # 默认浅蓝色
         elif self._is_hovered:

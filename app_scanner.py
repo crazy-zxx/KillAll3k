@@ -1,5 +1,4 @@
 import os
-import winreg
 from typing import List, Dict
 
 from pypinyin import pinyin, Style

@@ -1,29 +1,23 @@
-import sys
 import os
-import threading
+import sys
+
+import keyboard
+from PyQt6.QtCore import QFileInfo, QSize
+from PyQt6.QtCore import Qt, QPoint, QTimer
+from PyQt6.QtGui import QPainter, QBrush, QColor, QIcon, QAction, QPixmap
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QLineEdit, QMessageBox, QVBoxLayout, QListWidget, QListWidgetItem,
     QFileIconProvider, QSystemTrayIcon, QMenu
 )
-from PyQt6.QtCore import Qt, QPoint, QTimer, QSize
-from PyQt6.QtGui import QPainter, QBrush, QColor, QIcon, QAction
-import keyboard
-from rapidfuzz import fuzz
+
+from app_scanner import AppScanner
+from clipboard_manager import ClipboardManager
+from clipboard_window import ClipboardWindow
+from file_search import EverythingSearch
+from screenshot import ScreenshotManager
 from settings import (
     SignalHandler, SettingsManager, ThemeManager, AutoStartManager, SettingsWindow
 )
-from clipboard_window import ClipboardWindow
-from app_scanner import AppScanner
-from file_search import EverythingSearch
-
-try:
-    import win32api
-    import win32con
-    import win32gui
-    from io import BytesIO
-    HAS_WIN32 = True
-except ImportError:
-    HAS_WIN32 = False
 
 
 class SearchWindow(QWidget):
@@ -43,10 +37,10 @@ class SearchWindow(QWidget):
         self.search_results = []
         self.selected_index = 0
         # 在 SearchWindow 中也创建 ClipboardManager 实例，确保设置变更能即时生效
-        from clipboard_manager import ClipboardManager
+
         self.clipboard_manager = ClipboardManager(self.settings_manager)
         # 创建截图管理器
-        from screenshot import ScreenshotManager
+
         self.screenshot_manager = ScreenshotManager(self.settings_manager, self.theme_manager)
         # 用于跟踪当前注册的热键
         self.current_search_hotkey = None
@@ -302,7 +296,7 @@ class SearchWindow(QWidget):
             return None
         
         try:
-            from PyQt6.QtCore import QFileInfo, QSize
+
             provider = QFileIconProvider()
             file_info = QFileInfo(file_path)
             icon = provider.icon(file_info)
