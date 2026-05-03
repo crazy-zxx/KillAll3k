@@ -143,9 +143,9 @@ class ClipboardManager(QObject):
 
     def resource_path(self, relative_path):
         """获取打包后资源文件的绝对路径"""
-        if hasattr(sys, '_MEIPASS'):
-            # 如果是打包后的环境
-            base_path = sys._MEIPASS
+        if getattr(sys, 'frozen', False):
+            # 打包后的 exe：sys.executable 是 exe 的完整路径
+            base_path = os.path.dirname(sys.executable)
         else:
             # 开发环境，直接使用当前路径
             base_path = os.path.abspath(".")
