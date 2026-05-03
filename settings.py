@@ -53,7 +53,7 @@ class SettingsManager:
         return 'C:\\Users\\Public\\Pictures'
     
     def __init__(self):
-        self.settings_file = os.path.join(os.path.dirname(__file__), 'settings.json')
+        self.settings_file = self.resource_path('settings.json')
         self.default_settings = {
             'theme': 'auto',
             'auto_start': False,
@@ -86,7 +86,17 @@ class SettingsManager:
             'ocr_model': 'pp-ocrv5'
         }
         self.settings = self.load_settings()
-    
+
+    def resource_path(self, relative_path):
+        """获取打包后资源文件的绝对路径"""
+        if hasattr(sys, '_MEIPASS'):
+            # 如果是打包后的环境
+            base_path = sys._MEIPASS
+        else:
+            # 开发环境，直接使用当前路径
+            base_path = os.path.abspath(".")
+        return os.path.join(base_path, relative_path)
+
     def load_settings(self):
         if os.path.exists(self.settings_file):
             try:

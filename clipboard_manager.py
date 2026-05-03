@@ -2,6 +2,7 @@ import os
 import sqlite3
 import base64
 import json
+import sys
 from datetime import datetime
 from PyQt6.QtCore import QObject, pyqtSignal, QTimer, QBuffer, QByteArray, QIODevice, QUrl
 from PyQt6.QtGui import QImage, QPixmap
@@ -129,7 +130,7 @@ class ClipboardManager(QObject):
         self.clipboard = QApplication.clipboard()
         self.history = []
         self.last_content = None
-        self.db_file = os.path.join(os.path.dirname(__file__), 'clipboard_history.db')
+        self.db_file = self.resource_path('clipboard_history.db')
         self.timer = QTimer()
         self.timer.timeout.connect(self.check_clipboard)
         self._suppress_monitoring = False
@@ -139,7 +140,17 @@ class ClipboardManager(QObject):
         # 根据设置决定是否启动监控
         if self.settings_manager.get('clipboard_enabled', True):
             self.start_monitoring()
-    
+
+    def resource_path(self, relative_path):
+        """获取打包后资源文件的绝对路径"""
+        if hasattr(sys, '_MEIPASS'):
+            # 如果是打包后的环境
+            base_path = sys._MEIPASS
+        else:
+            # 开发环境，直接使用当前路径
+            base_path = os.path.abspath(".")
+        return os.path.join(base_path, relative_path)
+
     def _deep_copy_mime_data(self, mime_data):
 
         if not mime_data:
