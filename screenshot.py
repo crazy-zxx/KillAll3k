@@ -1891,26 +1891,6 @@ class OCRResultWindow(QMainWindow):
         # 按钮区域
         btn_layout = QHBoxLayout()
 
-        self.copy_btn = QPushButton("📋 复制全部")
-        self.copy_btn.clicked.connect(self.copy_text)
-        self.copy_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3b82f6;
-                color: white;
-                padding: 10px 20px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #2563eb;
-            }
-            QPushButton:disabled {
-                background-color: #93c5fd;
-            }
-        """)
-
         self.reocr_btn = QPushButton("🔄 重新识别")
         self.reocr_btn.clicked.connect(self.reocr)
         self.reocr_btn.setStyleSheet("""
@@ -1931,9 +1911,9 @@ class OCRResultWindow(QMainWindow):
             }
         """)
 
-        close_btn = QPushButton("关闭")
-        close_btn.clicked.connect(self.close)
-        close_btn.setStyleSheet("""
+        self.copy_btn = QPushButton("📋 复制")
+        self.copy_btn.clicked.connect(self.copy_text)
+        self.copy_btn.setStyleSheet("""
             QPushButton {
                 background-color: #64748b;
                 color: white;
@@ -1948,10 +1928,9 @@ class OCRResultWindow(QMainWindow):
             }
         """)
 
-        btn_layout.addWidget(self.copy_btn)
         btn_layout.addWidget(self.reocr_btn)
         btn_layout.addStretch()
-        btn_layout.addWidget(close_btn)
+        btn_layout.addWidget(self.copy_btn)
         layout.addLayout(btn_layout)
 
         # 初始禁用按钮
@@ -2003,7 +1982,7 @@ class OCRResultWindow(QMainWindow):
             from PyQt6.QtWidgets import QApplication
             clipboard = QApplication.clipboard()
             clipboard.setText(text)
-            QMessageBox.information(self, "成功", "已复制到剪贴板！")
+            # QMessageBox.information(self, "成功", "已复制到剪贴板！")
 
     def closeEvent(self, event):
         """窗口关闭时确保线程被清理"""
@@ -2087,7 +2066,7 @@ class AIDialog(QMainWindow):
         bottom_layout = QHBoxLayout()
 
         # 操作按钮（左）
-        self.explain_btn = QPushButton("� 解释图像")
+        self.explain_btn = QPushButton("🔍 解释图像")
         self.explain_btn.clicked.connect(lambda: self.start_task("explain"))
         self.explain_btn.setStyleSheet("""
             QPushButton {
@@ -2170,25 +2149,7 @@ class AIDialog(QMainWindow):
             }
         """)
 
-        close_btn = QPushButton("关闭")
-        close_btn.clicked.connect(self.close)
-        close_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #64748b;
-                color: white;
-                padding: 10px 20px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #475569;
-            }
-        """)
-
         bottom_layout.addWidget(copy_btn)
-        bottom_layout.addWidget(close_btn)
         layout.addLayout(bottom_layout)
 
     def load_models(self):
@@ -2292,7 +2253,7 @@ class AIDialog(QMainWindow):
         if text:
             clipboard = QApplication.clipboard()
             clipboard.setText(text)
-            QMessageBox.information(self, "成功", "已复制到剪贴板！")
+            # QMessageBox.information(self, "成功", "已复制到剪贴板！")
 
     def closeEvent(self, event):
         if self.worker and self.worker.isRunning():
@@ -2502,8 +2463,6 @@ class OCREngine:
             "optionalPayload": json.dumps(optional_payload)
         }
 
-        print(data)
-        
         # 准备文件
         files = {"file": ("image.png", BytesIO(image_bytes), "image/png")}
 
@@ -2546,7 +2505,6 @@ class OCREngine:
             
             # 解析JSONL
             lines = jsonl_response.text.strip().split('\n')
-            print(lines)
             all_texts = []
             
             for line in lines:
