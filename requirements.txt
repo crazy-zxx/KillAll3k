@@ -7,4 +7,3 @@ keyboard
 requests
 pywin32
 pylnk3
-markdown
