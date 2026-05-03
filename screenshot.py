@@ -16,8 +16,6 @@ from PyQt6.QtGui import (
 
 from PyQt6.QtGui import QAction
 
-from search import SearchWindow
-
 
 class ClickableLabel(QLabel):
     """可点击的标签"""

@@ -448,6 +448,22 @@ class ClipboardManager(QObject):
         finally:
             self._suppress_monitoring = False
 
+    def update_item_image(self, item, new_image):
+        if item.type != ClipboardItem.TYPE_IMAGE:
+            return
+        
+        self._suppress_monitoring = True
+        try:
+            item.content = new_image
+            item.mime_data = None
+            self._save_item_to_db(item)
+            self.history_updated.emit()
+            self.clipboard.clear()
+        except Exception as e:
+            print(f"更新图像失败: {e}")
+        finally:
+            self._suppress_monitoring = False
+
     def _save_item_to_db(self, item):
         try:
             conn = sqlite3.connect(self.db_file)

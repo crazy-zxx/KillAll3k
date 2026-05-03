@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QSize, QPoint, pyqtSignal, QMimeData, QTimer, QThread
 from PyQt6.QtGui import QPainter, QBrush, QColor, QPixmap, QDrag, QPen, QCursor, QIcon
 from clipboard_manager import ClipboardManager, ClipboardItem
+from screenshot import AnnotationEditor
 
 
 class TextEditDialog(QDialog):
@@ -190,6 +191,10 @@ class AIChatDialog(QDialog):
         self.settings_manager = settings_manager
         self.setWindowTitle("AI 处理")
         self.setFixedSize(600, 500)
+        self.setWindowFlags(
+            Qt.WindowType.WindowStaysOnTopHint |
+            Qt.WindowType.Tool
+        )
         self.current_model_index = 0
         self.worker = None
         self.init_ui()
@@ -244,7 +249,6 @@ class AIChatDialog(QDialog):
         layout.addWidget(self.result_text)
 
         buttons_layout = QHBoxLayout()
-        buttons_layout.addStretch()
 
         self.regenerate_btn = QPushButton("🔄 重新生成")
         self.regenerate_btn.setStyleSheet("""
@@ -269,42 +273,25 @@ class AIChatDialog(QDialog):
         """)
         self.regenerate_btn.clicked.connect(self.generate_response)
         buttons_layout.addWidget(self.regenerate_btn)
+        buttons_layout.addStretch()
 
-        copy_btn = QPushButton("📋 复制结果")
+        copy_btn = QPushButton("📋 复制")
         copy_btn.setStyleSheet("""
             QPushButton {
+                background-color: #64748b;
+                color: white;
                 padding: 10px 20px;
                 border: none;
                 border-radius: 6px;
-                background-color: #3b82f6;
-                color: white;
                 font-size: 14px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #2563eb;
+                background-color: #475569;
             }
         """)
         copy_btn.clicked.connect(self.copy_result)
         buttons_layout.addWidget(copy_btn)
-
-        close_btn = QPushButton("关闭")
-        close_btn.setStyleSheet("""
-            QPushButton {
-                padding: 10px 20px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-                color: #64748b;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #f1f5f9;
-            }
-        """)
-        close_btn.clicked.connect(self.accept)
-        buttons_layout.addWidget(close_btn)
 
         layout.addLayout(buttons_layout)
         self.setLayout(layout)
@@ -467,20 +454,20 @@ class ClipboardCardWidget(QWidget):
 
         timestamp = self.item.timestamp.strftime("今天 %H:%M")
         time_label = QLabel(timestamp)
-        time_label.setStyleSheet("color: #64748b; font-size: 14px; font-weight: 500;")
+        time_label.setStyleSheet("color: #64748b; font-size: 10px; font-weight: 500;")
         left_layout.addWidget(time_label)
 
         if self.item.type == ClipboardItem.TYPE_TEXT:
             info_text = f"{len(self.item.content.strip())} 字符"
             info_label = QLabel(info_text)
-            info_label.setStyleSheet("color: #94a3b8; font-size: 13px; padding-left: 8px;")
+            info_label.setStyleSheet("color: #94a3b8; font-size: 10px; padding-left: 8px;")
             left_layout.addWidget(info_label)
         elif self.item.type == ClipboardItem.TYPE_IMAGE:
             pixmap = QPixmap.fromImage(self.item.content)
             if not pixmap.isNull():
                 info_text = f"{pixmap.width()}×{pixmap.height()}"
                 info_label = QLabel(info_text)
-                info_label.setStyleSheet("color: #94a3b8; font-size: 13px; padding-left: 8px;")
+                info_label.setStyleSheet("color: #94a3b8; font-size: 10px; padding-left: 8px;")
                 left_layout.addWidget(info_label)
         elif self.item.type == ClipboardItem.TYPE_FILE:
             if isinstance(self.item.content, list):
@@ -488,7 +475,7 @@ class ClipboardCardWidget(QWidget):
             else:
                 info_text = "1 个文件"
             info_label = QLabel(info_text)
-            info_label.setStyleSheet("color: #94a3b8; font-size: 13px; padding-left: 8px;")
+            info_label.setStyleSheet("color: #94a3b8; font-size: 10px; padding-left: 8px;")
             left_layout.addWidget(info_label)
 
         left_layout.addStretch()
@@ -568,7 +555,7 @@ class ClipboardCardWidget(QWidget):
         index_label.setStyleSheet("""
             background-color: #3b82f6;
             color: white;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 600;
             border-radius: 5px;
         """)
@@ -592,7 +579,7 @@ class ClipboardCardWidget(QWidget):
             content_label.setWordWrap(True)
             content_label.setStyleSheet("""
                 color: #1e293b;
-                font-size: 15px;
+                font-size: 12px;
                 line-height: 1.6;
             """)
             layout.addWidget(content_label)
@@ -613,7 +600,7 @@ class ClipboardCardWidget(QWidget):
                 content_layout.addSpacing(12)
 
             desc_label = QLabel("[图片]")
-            desc_label.setStyleSheet("color: #64748b; font-size: 14px;")
+            desc_label.setStyleSheet("color: #64748b; font-size: 12px;")
             content_layout.addWidget(desc_label)
             content_layout.addStretch()
             layout.addLayout(content_layout)
@@ -624,25 +611,25 @@ class ClipboardCardWidget(QWidget):
                 for file_path in file_list:
                     file_layout = QHBoxLayout()
                     file_icon = QLabel("📄")
-                    file_icon.setStyleSheet("font-size: 16px;")
+                    file_icon.setStyleSheet("font-size: 12px;")
                     file_layout.addWidget(file_icon)
                     file_name = QLabel(os.path.basename(file_path))
-                    file_name.setStyleSheet("color: #1e293b; font-size: 14px;")
+                    file_name.setStyleSheet("color: #1e293b; font-size: 12px;")
                     file_layout.addWidget(file_name)
                     file_layout.addStretch()
                     layout.addLayout(file_layout)
 
                 if len(self.item.content) > 3:
                     more_label = QLabel(f"... 还有 {len(self.item.content) - 3} 个文件")
-                    more_label.setStyleSheet("color: #94a3b8; font-size: 13px;")
+                    more_label.setStyleSheet("color: #94a3b8; font-size: 12px;")
                     layout.addWidget(more_label)
             else:
                 file_layout = QHBoxLayout()
                 file_icon = QLabel("📄")
-                file_icon.setStyleSheet("font-size: 18px;")
+                file_icon.setStyleSheet("font-size: 12px;")
                 file_layout.addWidget(file_icon)
                 file_name = QLabel(os.path.basename(self.item.content))
-                file_name.setStyleSheet("color: #1e293b; font-size: 14px;")
+                file_name.setStyleSheet("color: #1e293b; font-size: 12px;")
                 file_layout.addWidget(file_name)
                 file_layout.addStretch()
                 layout.addLayout(file_layout)
@@ -1267,6 +1254,10 @@ class ClipboardWindow(QWidget):
                 edit_action = menu.addAction("编辑")
                 edit_action.triggered.connect(lambda: self.edit_item_text(item))
                 menu.addSeparator()
+            elif item.type == ClipboardItem.TYPE_IMAGE:
+                edit_action = menu.addAction("编辑")
+                edit_action.triggered.connect(lambda: self.edit_item_image(item))
+                menu.addSeparator()
 
             if item.type in [ClipboardItem.TYPE_TEXT, ClipboardItem.TYPE_IMAGE]:
                 explain_action = menu.addAction("AI 解释")
@@ -1362,6 +1353,19 @@ class ClipboardWindow(QWidget):
             new_text = dialog.get_text()
             if new_text:
                 self.clipboard_manager.update_item_text(item, new_text)
+
+    def edit_item_image(self, item):
+        if item.type != ClipboardItem.TYPE_IMAGE:
+            return
+
+        editor = AnnotationEditor(item.content)
+        editor.save_clicked.connect(lambda img: self.on_image_edited(item, img))
+        editor.copy_clicked.connect(lambda img: self.on_image_edited(item, img))
+        editor.show()
+
+    def on_image_edited(self, item, image):
+        if image and not image.isNull():
+            self.clipboard_manager.update_item_image(item, image)
 
     def ai_explain(self, item):
         if item.type not in [ClipboardItem.TYPE_TEXT, ClipboardItem.TYPE_IMAGE]:
