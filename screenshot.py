@@ -889,7 +889,7 @@ class AnnotationEditor(QMainWindow):
     sticker_clicked = pyqtSignal(QImage)
     closed = pyqtSignal()
 
-    def __init__(self, image):
+    def __init__(self, image, theme_manager=None):
         super().__init__()
         self.original_image = image
         self.current_image = QImage(image)
@@ -901,6 +901,7 @@ class AnnotationEditor(QMainWindow):
         self.line_width = 3
         self.number_counter = 1
         self.dpi_scale = self.get_dpi_scale()
+        self.theme_manager = theme_manager
 
         self.setWindowTitle("截图编辑")
         self.setWindowFlags(
@@ -909,6 +910,7 @@ class AnnotationEditor(QMainWindow):
         )
 
         self.init_ui()
+        self.apply_theme()
 
         self.setFixedSize(int(1700 / self.dpi_scale), int(1100 / self.dpi_scale))
 
@@ -946,6 +948,7 @@ class AnnotationEditor(QMainWindow):
         self.addToolBar(toolbar)
 
         # 工具按钮
+        self.tool_buttons = []
         tools = [
             ("选择", AnnotationItem.SELECT),
             ("画笔", AnnotationItem.PEN),
@@ -966,28 +969,15 @@ class AnnotationEditor(QMainWindow):
                 btn.setChecked(True)
             btn.clicked.connect(lambda checked, t=tool_type, b=btn: self.set_tool(t, b))
             toolbar.addWidget(btn)
-
+            self.tool_buttons.append(btn)
 
         tmp = QLabel('')
         tmp.setFixedWidth(20)
         toolbar.addWidget(tmp)
 
-
         # 颜色块显示（可点击）
         self.color_label = ClickableLabel()
         self.color_label.setFixedSize(24, 24)
-        self.color_label.setStyleSheet(f"""
-            ClickableLabel {{
-                background-color: {self.color.name()};
-                border: 1px solid #ccc;
-                border-radius: 2px;
-            }}
-            ClickableLabel:hover {{
-                border-color: #666;
-                cursor: pointer;
-            }}
-        """)
-        # 点击色块打开颜色选择
         self.color_label.clicked.connect(self.choose_color)
         toolbar.addWidget(self.color_label)
 
@@ -1000,7 +990,8 @@ class AnnotationEditor(QMainWindow):
         self.line_spin.setRange(1, 100)
         self.line_spin.setValue(self.line_width)
         self.line_spin.valueChanged.connect(self.set_line_width)
-        toolbar.addWidget(QLabel("线宽:"))
+        self.line_width_label = QLabel("线宽:")
+        toolbar.addWidget(self.line_width_label)
         toolbar.addWidget(self.line_spin)
 
         tmp = QLabel('')
@@ -1008,29 +999,29 @@ class AnnotationEditor(QMainWindow):
         toolbar.addWidget(tmp)
 
         # 操作按钮
-        ocr_btn = QPushButton("OCR识别")
-        ocr_btn.clicked.connect(self.do_ocr)
-        toolbar.addWidget(ocr_btn)
+        self.ocr_btn = QPushButton("OCR识别")
+        self.ocr_btn.clicked.connect(self.do_ocr)
+        toolbar.addWidget(self.ocr_btn)
 
-        ai_btn = QPushButton("问AI")
-        ai_btn.clicked.connect(self.do_ai)
-        toolbar.addWidget(ai_btn)
+        self.ai_btn = QPushButton("问AI")
+        self.ai_btn.clicked.connect(self.do_ai)
+        toolbar.addWidget(self.ai_btn)
 
         tmp = QLabel('')
         tmp.setFixedWidth(60)
         toolbar.addWidget(tmp)
 
-        sticker_btn = QPushButton("贴图")
-        sticker_btn.clicked.connect(self.do_sticker)
-        toolbar.addWidget(sticker_btn)
+        self.sticker_btn = QPushButton("贴图")
+        self.sticker_btn.clicked.connect(self.do_sticker)
+        toolbar.addWidget(self.sticker_btn)
 
-        copy_btn = QPushButton("复制")
-        copy_btn.clicked.connect(self.do_copy)
-        toolbar.addWidget(copy_btn)
+        self.copy_btn = QPushButton("复制")
+        self.copy_btn.clicked.connect(self.do_copy)
+        toolbar.addWidget(self.copy_btn)
 
-        save_btn = QPushButton("保存")
-        save_btn.clicked.connect(self.do_save)
-        toolbar.addWidget(save_btn)
+        self.save_btn = QPushButton("保存")
+        self.save_btn.clicked.connect(self.do_save)
+        toolbar.addWidget(self.save_btn)
 
         # 滚动区域
         from PyQt6.QtWidgets import QScrollArea
@@ -1050,6 +1041,134 @@ class AnnotationEditor(QMainWindow):
         # 设置滚动区域对齐方式居中
         scroll_area.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setCentralWidget(scroll_area)
+
+    def apply_theme(self):
+        """应用主题"""
+        if not self.theme_manager:
+            return
+        colors = self.theme_manager.get_colors()
+
+        # 设置工具栏和窗口背景
+        self.setStyleSheet(f"""
+            QMainWindow {{
+                background-color: {colors['window']};
+            }}
+            QToolBar {{
+                background-color: {colors['window']};
+                border: none;
+                spacing: 4px;
+            }}
+            QToolBar::separator {{
+                background-color: {colors['border']};
+                width: 1px;
+                margin: 4px 8px;
+            }}
+        """)
+
+        # 设置工具按钮样式
+        for btn in self.tool_buttons:
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {colors['base']};
+                    color: {colors['base_text']};
+                    border: 1px solid {colors['border']};
+                    border-radius: 4px;
+                    padding: 6px 12px;
+                }}
+                QPushButton:hover {{
+                    background-color: {colors['hover']};
+                    border-color: {colors['highlight']};
+                }}
+                QPushButton:checked {{
+                    background-color: {colors['highlight']};
+                    color: {colors['highlight_text']};
+                    border-color: {colors['highlight']};
+                }}
+            """)
+
+        # 设置颜色标签
+        self.color_label.setStyleSheet(f"""
+            ClickableLabel {{
+                background-color: {self.color.name()};
+                border: 1px solid {colors['border']};
+                border-radius: 2px;
+            }}
+            ClickableLabel:hover {{
+                border-color: {colors['highlight']};
+                cursor: pointer;
+            }}
+        """)
+
+        # 设置线宽标签和输入框
+        self.line_width_label.setStyleSheet(f"color: {colors['window_text']};")
+        self.line_spin.setStyleSheet(f"""
+            QSpinBox {{
+                background-color: {colors['base']};
+                color: {colors['base_text']};
+                border: 1px solid {colors['border']};
+                border-radius: 4px;
+                padding: 4px;
+            }}
+            QSpinBox:hover {{
+                border-color: {colors['highlight']};
+            }}
+            QSpinBox::up-button, QSpinBox::down-button {{
+                background-color: {colors['button']};
+                border-left: 1px solid {colors['border']};
+                width: 20px;
+            }}
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover {{
+                background-color: {colors['hover']};
+            }}
+            QSpinBox::up-arrow {{
+                border-left: 5px solid ;
+                border-right: 5px solid ;
+                border-bottom: 6px solid {colors['base_text']};
+                width: 0;
+                height: 0;
+            }}
+            QSpinBox::down-arrow {{
+                border-left: 5px solid ;
+                border-right: 5px solid ;
+                border-top: 6px solid {colors['base_text']};
+                width: 0;
+                height: 0;
+            }}
+        """)
+
+        # 设置操作按钮样式
+        for btn in [self.ocr_btn, self.ai_btn, self.sticker_btn, self.copy_btn, self.save_btn]:
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {colors['base']};
+                    color: {colors['base_text']};
+                    border: 1px solid {colors['border']};
+                    border-radius: 4px;
+                    padding: 6px 12px;
+                }}
+                QPushButton:hover {{
+                    background-color: {colors['hover']};
+                    border-color: {colors['highlight']};
+                }}
+                QPushButton:checked {{
+                    background-color: {colors['highlight']};
+                    color: {colors['highlight_text']};
+                    border-color: {colors['highlight']};
+                }}
+            """)
+
+        # 更新画布文字编辑框样式
+        if hasattr(self.canvas, 'text_edit'):
+            self.canvas.text_edit.setStyleSheet(f"""
+                QLineEdit {{
+                    background-color: {colors['base']};
+                    border: 2px solid {colors['highlight']};
+                    border-radius: 4px;
+                    padding: 4px;
+                    font-size: 14px;
+                    color: {colors['base_text']};
+                }}
+            """)
 
     def set_tool(self, tool_type, button):
         """设置当前工具"""
@@ -1088,17 +1207,7 @@ class AnnotationEditor(QMainWindow):
         if color.isValid():
             self.color = color
             # 更新颜色块显示
-            self.color_label.setStyleSheet(f"""
-                ClickableLabel {{
-                    background-color: {self.color.name()};
-                    border: 1px solid #ccc;
-                    border-radius: 2px;
-                }}
-                ClickableLabel:hover {{
-                    border-color: #666;
-                    cursor: pointer;
-                }}
-            """)
+            self.apply_theme()
 
     def set_line_width(self, width):
         """设置线宽"""
@@ -1737,8 +1846,9 @@ class StickerWindow(QWidget):
 class ScreenshotManager:
     """截图管理器"""
 
-    def __init__(self, settings_manager):
+    def __init__(self, settings_manager, theme_manager=None):
         self.settings_manager = settings_manager
+        self.theme_manager = theme_manager
         self.screenshot_window = None
         self.annotation_editor = None
         self.sticker_windows = []
@@ -1772,7 +1882,7 @@ class ScreenshotManager:
 
     def show_annotation_editor(self, image):
         """显示标注编辑器"""
-        self.annotation_editor = AnnotationEditor(image)
+        self.annotation_editor = AnnotationEditor(image, self.theme_manager)
         self.annotation_editor.save_clicked.connect(self.save_image)
         self.annotation_editor.copy_clicked.connect(self.copy_to_clipboard)
         self.annotation_editor.ocr_clicked.connect(self.do_ocr)
@@ -1807,14 +1917,14 @@ class ScreenshotManager:
     def do_ocr(self, image):
         """OCR识别"""
         # 创建OCR结果窗口，设置为模态对话框
-        self.ocr_window = OCRResultWindow(image, self.ocr_engine, parent=self.annotation_editor)
+        self.ocr_window = OCRResultWindow(image, self.ocr_engine, self.theme_manager, parent=self.annotation_editor)
         self.ocr_window.setWindowModality(Qt.WindowModality.WindowModal)
         self.ocr_window.show()
 
     def do_ai(self, image):
         """问AI"""
         # 创建AI对话框，设置为模态对话框
-        self.ai_window = AIDialog(image, self.settings_manager, parent=self.annotation_editor)
+        self.ai_window = AIDialog(image, self.settings_manager, self.theme_manager, parent=self.annotation_editor)
         self.ai_window.setWindowModality(Qt.WindowModality.WindowModal)
         self.ai_window.show()
 
@@ -1843,13 +1953,15 @@ class OCRWorker(QThread):
 class OCRResultWindow(QMainWindow):
     """OCR结果显示窗口"""
 
-    def __init__(self, image, ocr_engine, parent=None):
+    def __init__(self, image, ocr_engine, theme_manager=None, parent=None):
         super().__init__(parent)
         self.image = image
         self.ocr_engine = ocr_engine
+        self.theme_manager = theme_manager
         self.result_text = ""
         self.ocr_worker = None
         self.init_ui()
+        self.apply_theme()
         self.process_image()
 
     def init_ui(self):
@@ -1982,6 +2094,72 @@ class OCRResultWindow(QMainWindow):
             clipboard.setText(text)
             # QMessageBox.information(self, "成功", "已复制到剪贴板！")
 
+    def apply_theme(self):
+        """应用主题"""
+        if not self.theme_manager:
+            return
+        colors = self.theme_manager.get_colors()
+        
+        # 设置窗口背景
+        self.setStyleSheet(f"""
+            QMainWindow {{
+                background-color: {colors['window']};
+            }}
+        """)
+        
+        # 设置标题标签
+        self.findChild(QLabel).setStyleSheet(f"color: {colors['window_text']};")
+        
+        # 设置文本区域
+        self.text_edit.setStyleSheet(f"""
+            QTextEdit {{
+                background-color: {colors['base']};
+                color: {colors['base_text']};
+                border: 1px solid {colors['border']};
+                border-radius: 6px;
+                padding: 12px;
+                font-size: 14px;
+                line-height: 1.6;
+            }}
+        """)
+        
+        # 设置重新识别按钮
+        self.reocr_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {colors['highlight']};
+                color: {colors['highlight_text']};
+                padding: 10px 20px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {colors['hover']};
+            }}
+            QPushButton:disabled {{
+                background-color: {colors['border']};
+                color: {colors['text_secondary']};
+            }}
+        """)
+        
+        # 设置复制按钮
+        self.copy_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {colors['button']};
+                color: {colors['button_text']};
+                padding: 10px 20px;
+                border: 1px solid {colors['border']};
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {colors['hover']};
+                border-color: {colors['highlight']};
+            }}
+        """)
+    
     def closeEvent(self, event):
         """窗口关闭时确保线程被清理"""
         if self.ocr_worker and self.ocr_worker.isRunning():
@@ -1993,14 +2171,16 @@ class OCRResultWindow(QMainWindow):
 class AIDialog(QMainWindow):
     """AI对话框"""
 
-    def __init__(self, image, settings_manager, parent=None):
+    def __init__(self, image, settings_manager, theme_manager=None, parent=None):
         super().__init__(parent)
         self.image = image
         self.settings_manager = settings_manager
+        self.theme_manager = theme_manager
         self.current_task = None
         self.worker = None
         self.recognized_text = None
         self.init_ui()
+        self.apply_theme()
 
     def init_ui(self):
         self.setWindowTitle("问AI")
@@ -2246,6 +2426,146 @@ class AIDialog(QMainWindow):
         self.result_text.setPlainText(f"错误：{error}")
         self.set_buttons_enabled(True)
 
+    def apply_theme(self):
+        """应用主题"""
+        if not self.theme_manager:
+            return
+        colors = self.theme_manager.get_colors()
+        
+        # 设置窗口背景
+        self.setStyleSheet(f"""
+            QMainWindow {{
+                background-color: {colors['window']};
+            }}
+        """)
+        
+        # 设置所有标签
+        for label in self.findChildren(QLabel):
+            label.setStyleSheet(f"color: {colors['window_text']};")
+        
+        # 设置模型下拉框
+        self.model_combo.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {colors['base']};
+                color: {colors['base_text']};
+                border: 1px solid {colors['border']};
+                border-radius: 6px;
+                padding: 8px 12px;
+                min-width: 200px;
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 30px;
+            }}
+            QComboBox::down-arrow {{
+                image: none;
+                border-left: 5px solid ;
+                border-right: 5px solid ;
+                border-top: 6px solid {colors['base_text']};
+                width: 0;
+                height: 0;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {colors['base']};
+                color: {colors['base_text']};
+                border: 1px solid {colors['border']};
+                selection-background-color: {colors['highlight']};
+                selection-color: {colors['highlight_text']};
+            }}
+        """)
+        
+        # 设置结果文本区域
+        self.result_text.setStyleSheet(f"""
+            QTextEdit {{
+                background-color: {colors['base']};
+                color: {colors['base_text']};
+                border: 1px solid {colors['border']};
+                border-radius: 6px;
+                padding: 12px;
+                font-size: 14px;
+                line-height: 1.6;
+            }}
+        """)
+        
+        # 设置解释图像按钮
+        self.explain_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {colors['success']};
+                color: white;
+                padding: 10px 16px;
+                border: none;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: #059669;
+            }}
+            QPushButton:disabled {{
+                background-color: {colors['border']};
+                color: {colors['text_secondary']};
+            }}
+        """)
+        
+        # 设置识别文字按钮
+        self.ocr_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {colors['info']};
+                color: white;
+                padding: 10px 16px;
+                border: none;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: #2563eb;
+            }}
+            QPushButton:disabled {{
+                background-color: {colors['border']};
+                color: {colors['text_secondary']};
+            }}
+        """)
+        
+        # 设置翻译文字按钮
+        self.translate_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: #8b5cf6;
+                color: white;
+                padding: 10px 16px;
+                border: none;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: #7c3aed;
+            }}
+            QPushButton:disabled {{
+                background-color: {colors['border']};
+                color: {colors['text_secondary']};
+            }}
+        """)
+        
+        # 设置复制按钮
+        for btn in self.findChildren(QPushButton):
+            if btn.text() == "📋 复制":
+                btn.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {colors['button']};
+                        color: {colors['button_text']};
+                        padding: 10px 20px;
+                        border: 1px solid {colors['border']};
+                        border-radius: 6px;
+                        font-size: 14px;
+                        font-weight: bold;
+                    }}
+                    QPushButton:hover {{
+                        background-color: {colors['hover']};
+                        border-color: {colors['highlight']};
+                    }}
+                """)
+    
     def copy_result(self):
         text = self.result_text.toPlainText()
         if text:

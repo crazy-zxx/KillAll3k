@@ -14,80 +14,91 @@ from screenshot import AnnotationEditor
 
 
 class TextEditDialog(QDialog):
-    def __init__(self, initial_text, parent=None):
+    def __init__(self, initial_text, parent=None, theme_manager=None):
         super().__init__(parent)
         self.initial_text = initial_text
+        self.theme_manager = theme_manager
         self.setWindowTitle("编辑文本")
         self.setFixedSize(450, 350)
         self.init_ui()
+        self.apply_theme()
 
     def init_ui(self):
         layout = QVBoxLayout()
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
-        title_label = QLabel("编辑内容：")
-        title_label.setStyleSheet("font-size: 14px; font-weight: 600; color: #1e293b;")
-        layout.addWidget(title_label)
+        self.title_label = QLabel("编辑内容：")
+        self.title_label.setStyleSheet("font-size: 14px; font-weight: 600;")
+        layout.addWidget(self.title_label)
 
         self.text_edit = QTextEdit()
         self.text_edit.setPlainText(self.initial_text)
-        self.text_edit.setStyleSheet("""
-            QTextEdit {
-                border: 1px solid #e2e8f0;
-                border-radius: 8px;
-                padding: 12px;
-                font-size: 14px;
-                line-height: 1.6;
-                background-color: #ffffff;
-            }
-            QTextEdit:focus {
-                border: 1px solid #3b82f6;
-            }
-        """)
         layout.addWidget(self.text_edit)
 
         buttons_layout = QHBoxLayout()
         buttons_layout.addStretch()
 
-        cancel_btn = QPushButton("取消")
-        cancel_btn.setStyleSheet("""
-            QPushButton {
-                padding: 10px 24px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: #ffffff;
-                color: #64748b;
-                font-size: 14px;
-                font-weight: 600;
-            }
-            QPushButton:hover {
-                background-color: #f1f5f9;
-            }
-        """)
-        cancel_btn.clicked.connect(self.reject)
-        buttons_layout.addWidget(cancel_btn)
+        self.cancel_btn = QPushButton("取消")
+        self.cancel_btn.clicked.connect(self.reject)
+        buttons_layout.addWidget(self.cancel_btn)
 
-        ok_btn = QPushButton("保存")
-        ok_btn.setStyleSheet("""
-            QPushButton {
-                padding: 10px 24px;
-                border: none;
-                border-radius: 6px;
-                background-color: #3b82f6;
-                color: #ffffff;
-                font-size: 14px;
-                font-weight: 600;
-            }
-            QPushButton:hover {
-                background-color: #2563eb;
-            }
-        """)
-        ok_btn.clicked.connect(self.accept)
-        buttons_layout.addWidget(ok_btn)
+        self.ok_btn = QPushButton("保存")
+        self.ok_btn.clicked.connect(self.accept)
+        buttons_layout.addWidget(self.ok_btn)
 
         layout.addLayout(buttons_layout)
         self.setLayout(layout)
+
+    def apply_theme(self):
+        if not self.theme_manager:
+            return
+        colors = self.theme_manager.get_colors()
+        self.title_label.setStyleSheet(f"font-size: 14px; font-weight: 600; color: {colors['window_text']};")
+        self.text_edit.setStyleSheet(f"""
+            QTextEdit {{
+                border: 1px solid {colors['border']};
+                border-radius: 8px;
+                padding: 12px;
+                font-size: 14px;
+                line-height: 1.6;
+                background-color: {colors['base']};
+                color: {colors['base_text']};
+            }}
+            QTextEdit:focus {{
+                border: 1px solid {colors['highlight']};
+            }}
+        """)
+        self.cancel_btn.setStyleSheet(f"""
+            QPushButton {{
+                padding: 10px 24px;
+                border: 1px solid {colors['border']};
+                border-radius: 6px;
+                background-color: {colors['base']};
+                color: {colors['text_secondary']};
+                font-size: 14px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                background-color: {colors['hover']};
+            }}
+        """)
+        self.ok_btn.setStyleSheet(f"""
+            QPushButton {{
+                padding: 10px 24px;
+                border: none;
+                border-radius: 6px;
+                background-color: {colors['highlight']};
+                color: {colors['highlight_text']};
+                font-size: 14px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                background-color: {colors['highlight']};
+                opacity: 0.9;
+            }}
+        """)
+        self.setStyleSheet(f"background-color: {colors['window']};")
 
     def get_text(self):
         return self.text_edit.toPlainText()
@@ -183,12 +194,13 @@ class AIWorker(QThread):
 
 
 class AIChatDialog(QDialog):
-    def __init__(self, content, content_type, task_type, settings_manager, parent=None):
+    def __init__(self, content, content_type, task_type, settings_manager, theme_manager=None, parent=None):
         super().__init__(parent)
         self.content = content
         self.content_type = content_type
         self.task_type = task_type
         self.settings_manager = settings_manager
+        self.theme_manager = theme_manager
         self.setWindowTitle("AI 处理")
         self.setFixedSize(600, 500)
         self.setWindowFlags(
@@ -198,6 +210,7 @@ class AIChatDialog(QDialog):
         self.current_model_index = 0
         self.worker = None
         self.init_ui()
+        self.apply_theme()
         self.generate_response()
 
     def init_ui(self):
@@ -205,96 +218,94 @@ class AIChatDialog(QDialog):
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
 
-        title_label = QLabel("AI 翻译" if self.task_type == "translate" else "AI 解释")
-        title_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #1e293b;")
-        layout.addWidget(title_label)
+        self.title_label = QLabel("AI 翻译" if self.task_type == "translate" else "AI 解释")
+        layout.addWidget(self.title_label)
 
         model_layout = QHBoxLayout()
-        model_label = QLabel("选择模型：")
-        model_label.setStyleSheet("font-size: 13px; color: #64748b;")
+        self.model_label = QLabel("选择模型：")
         self.model_combo = QComboBox()
-        self.model_combo.setStyleSheet("""
-            QComboBox {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-                min-width: 200px;
-            }
-        """)
         self.load_models()
-        model_layout.addWidget(model_label)
+        model_layout.addWidget(self.model_label)
         model_layout.addWidget(self.model_combo)
         model_layout.addStretch()
         layout.addLayout(model_layout)
 
-        result_label = QLabel("AI 回复：")
-        result_label.setStyleSheet("font-size: 14px; font-weight: 600; color: #1e293b; margin-top: 10px;")
-        layout.addWidget(result_label)
+        self.result_label = QLabel("AI 回复：")
+        layout.addWidget(self.result_label)
 
         self.result_text = QTextEdit()
         self.result_text.setReadOnly(True)
-        self.result_text.setStyleSheet("""
-            QTextEdit {
-                border: 1px solid #e2e8f0;
-                border-radius: 8px;
-                padding: 15px;
-                font-size: 14px;
-                line-height: 1.8;
-                background-color: white;
-                color: #1e293b;
-            }
-        """)
         self.result_text.setPlaceholderText("正在生成...")
         layout.addWidget(self.result_text)
 
         buttons_layout = QHBoxLayout()
 
         self.regenerate_btn = QPushButton("🔄 重新生成")
-        self.regenerate_btn.setStyleSheet("""
-            QPushButton {
-                padding: 10px 20px;
-                border: 1px solid #8b5cf6;
-                border-radius: 6px;
-                background-color: white;
-                color: #8b5cf6;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #8b5cf6;
-                color: white;
-            }
-            QPushButton:disabled {
-                background-color: #e2e8f0;
-                border-color: #e2e8f0;
-                color: #94a3b8;
-            }
-        """)
         self.regenerate_btn.clicked.connect(self.generate_response)
         buttons_layout.addWidget(self.regenerate_btn)
         buttons_layout.addStretch()
 
-        copy_btn = QPushButton("📋 复制")
-        copy_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #64748b;
-                color: white;
+        self.copy_btn = QPushButton("📋 复制")
+        self.copy_btn.clicked.connect(self.copy_result)
+        buttons_layout.addWidget(self.copy_btn)
+
+        layout.addLayout(buttons_layout)
+        self.setLayout(layout)
+
+    def apply_theme(self):
+        if not self.theme_manager:
+            return
+        colors = self.theme_manager.get_colors()
+        self.title_label.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {colors['window_text']};")
+        self.model_label.setStyleSheet(f"font-size: 13px; color: {colors['text_secondary']};")
+        self.model_combo.setStyleSheet(self.theme_manager.get_combobox_style())
+        self.result_label.setStyleSheet(f"font-size: 14px; font-weight: 600; color: {colors['window_text']}; margin-top: 10px;")
+        self.result_text.setStyleSheet(f"""
+            QTextEdit {{
+                border: 1px solid {colors['border']};
+                border-radius: 8px;
+                padding: 15px;
+                font-size: 14px;
+                line-height: 1.8;
+                background-color: {colors['base']};
+                color: {colors['base_text']};
+            }}
+        """)
+        self.regenerate_btn.setStyleSheet(f"""
+            QPushButton {{
+                padding: 10px 20px;
+                border: 1px solid {colors['highlight']};
+                border-radius: 6px;
+                background-color: {colors['base']};
+                color: {colors['highlight']};
+                font-size: 14px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {colors['highlight']};
+                color: {colors['highlight_text']};
+            }}
+            QPushButton:disabled {{
+                background-color: {colors['hover']};
+                border-color: {colors['border']};
+                color: {colors['text_secondary']};
+            }}
+        """)
+        self.copy_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {colors['highlight']};
+                color: {colors['highlight_text']};
                 padding: 10px 20px;
                 border: none;
                 border-radius: 6px;
                 font-size: 14px;
                 font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #475569;
-            }
+            }}
+            QPushButton:hover {{
+                opacity: 0.9;
+            }}
         """)
-        copy_btn.clicked.connect(self.copy_result)
-        buttons_layout.addWidget(copy_btn)
-
-        layout.addLayout(buttons_layout)
-        self.setLayout(layout)
+        self.setStyleSheet(f"background-color: {colors['window']};")
 
     def load_models(self):
         self.model_combo.clear()
@@ -387,7 +398,7 @@ class ClipboardCardWidget(QWidget):
     pin_toggled = pyqtSignal(object)
     item_deleted = pyqtSignal(object)
 
-    def __init__(self, item, parent=None, index=0, is_selected=False):
+    def __init__(self, item, parent=None, index=0, is_selected=False, theme_manager=None):
         super().__init__(parent)
         self.item = item
         self.index = index
@@ -396,34 +407,97 @@ class ClipboardCardWidget(QWidget):
         self._is_selected = is_selected
         self.drag_start_pos = None
         self.action_buttons = None
+        self.theme_manager = theme_manager
+        self.labels = []  # 保存所有标签引用
         self.init_ui()
+        self.apply_theme()
+        self.update_label_colors()  # 确保初始状态颜色正确
 
     def set_selected(self, selected):
         self._is_selected = selected
+        self.update_label_colors()
         self.update()
+
+    def update_label_colors(self):
+        """根据当前状态动态更新标签文字颜色"""
+        if not self.theme_manager:
+            return
+        colors = self.theme_manager.get_colors()
+        
+        # 确定当前应该使用的文字颜色
+        if self._is_selected:
+            text_color = colors['highlight_text']
+        else:
+            text_color = colors['base_text']
+        
+        for label_type, label in self.labels:
+            try:
+                if label_type == 'time':
+                    if self._is_selected:
+                        label.setStyleSheet(f"color: {colors['highlight_text']}; font-size: 10px; font-weight: 500;")
+                    else:
+                        label.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 10px; font-weight: 500;")
+                elif label_type == 'info':
+                    if self._is_selected:
+                        label.setStyleSheet(f"color: {colors['highlight_text']}; font-size: 10px; padding-left: 8px;")
+                    else:
+                        label.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 10px; padding-left: 8px;")
+                elif label_type == 'content':
+                    label.setStyleSheet(f"color: {text_color}; font-size: 12px; line-height: 1.6;")
+                elif label_type == 'desc':
+                    if self._is_selected:
+                        label.setStyleSheet(f"color: {colors['highlight_text']}; font-size: 12px;")
+                    else:
+                        label.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 12px;")
+            except RuntimeError:
+                pass
 
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
+        # 获取当前主题颜色
+        colors = self.theme_manager.get_colors() if self.theme_manager else None
+        
         # 根据状态确定背景色
         if self._is_selected and self._is_hovered:
-            bg_color = QColor(147, 197, 253)  # 选中且悬停：明显的蓝色
+            if colors:
+                bg_color = QColor(colors['highlight'])  # 使用主题高亮色
+            else:
+                bg_color = QColor(147, 197, 253)  # 默认浅蓝色
         elif self._is_selected:
-            bg_color = QColor(219, 234, 254)  # 选中：浅蓝色
+            if colors:
+                # 创建一个稍微浅一点的高亮色作为选中背景
+                base_color = QColor(colors['highlight'])
+                h, s, v, a = base_color.getHsv()
+                bg_color = QColor.fromHsv(h, max(s - 30, 100), min(v + 30, 255), 50)
+            else:
+                bg_color = QColor(219, 234, 254)  # 默认浅蓝色
         elif self._is_hovered:
-            bg_color = QColor(226, 232, 240)  # 仅悬停：明显的浅灰色
+            if colors:
+                bg_color = QColor(colors['hover'])  # 使用主题悬停色
+            else:
+                bg_color = QColor(226, 232, 240)  # 默认浅灰色
         else:
-            bg_color = QColor(255, 255, 255)  # 默认：白色
+            if colors:
+                bg_color = QColor(colors['base'])  # 使用主题背景色
+            else:
+                bg_color = QColor(255, 255, 255)  # 默认白色
 
         # 绘制背景
         painter.setBrush(QBrush(bg_color))
 
         # 根据是否选中确定边框
         if self._is_selected:
-            painter.setPen(QPen(QColor(59, 130, 246), 2))  # 选中：蓝色边框
+            if colors:
+                painter.setPen(QPen(QColor(colors['highlight']), 2))  # 使用主题高亮色
+            else:
+                painter.setPen(QPen(QColor(59, 130, 246), 2))  # 默认蓝色边框
         else:
-            painter.setPen(QPen(QColor(226, 232, 240), 1))  # 未选中：浅灰色边框
+            if colors:
+                painter.setPen(QPen(QColor(colors['border']), 1))  # 使用主题边框色
+            else:
+                painter.setPen(QPen(QColor(226, 232, 240), 1))  # 默认浅灰色边框
 
         # 绘制圆角矩形
         painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), 12, 12)
@@ -454,20 +528,23 @@ class ClipboardCardWidget(QWidget):
 
         timestamp = self.item.timestamp.strftime("今天 %H:%M")
         time_label = QLabel(timestamp)
-        time_label.setStyleSheet("color: #64748b; font-size: 10px; font-weight: 500;")
+        time_label.setStyleSheet("font-size: 10px; font-weight: 500;")
+        self.labels.append(('time', time_label))
         left_layout.addWidget(time_label)
 
         if self.item.type == ClipboardItem.TYPE_TEXT:
             info_text = f"{len(self.item.content.strip())} 字符"
             info_label = QLabel(info_text)
-            info_label.setStyleSheet("color: #94a3b8; font-size: 10px; padding-left: 8px;")
+            info_label.setStyleSheet("font-size: 10px; padding-left: 8px;")
+            self.labels.append(('info', info_label))
             left_layout.addWidget(info_label)
         elif self.item.type == ClipboardItem.TYPE_IMAGE:
             pixmap = QPixmap.fromImage(self.item.content)
             if not pixmap.isNull():
                 info_text = f"{pixmap.width()}×{pixmap.height()}"
                 info_label = QLabel(info_text)
-                info_label.setStyleSheet("color: #94a3b8; font-size: 10px; padding-left: 8px;")
+                info_label.setStyleSheet("font-size: 10px; padding-left: 8px;")
+                self.labels.append(('info', info_label))
                 left_layout.addWidget(info_label)
         elif self.item.type == ClipboardItem.TYPE_FILE:
             if isinstance(self.item.content, list):
@@ -475,7 +552,8 @@ class ClipboardCardWidget(QWidget):
             else:
                 info_text = "1 个文件"
             info_label = QLabel(info_text)
-            info_label.setStyleSheet("color: #94a3b8; font-size: 10px; padding-left: 8px;")
+            info_label.setStyleSheet("font-size: 10px; padding-left: 8px;")
+            self.labels.append(('info', info_label))
             left_layout.addWidget(info_label)
 
         left_layout.addStretch()
@@ -550,7 +628,7 @@ class ClipboardCardWidget(QWidget):
 
         # Smaller index label
         index_label = QLabel(str(self.index + 1))
-        index_label.setFixedSize(20, 20)
+        index_label.setFixedHeight(20)
         index_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         index_label.setStyleSheet("""
             background-color: #3b82f6;
@@ -558,6 +636,7 @@ class ClipboardCardWidget(QWidget):
             font-size: 10px;
             font-weight: 600;
             border-radius: 5px;
+            padding: 4px;
         """)
         right_layout.addWidget(index_label)
 
@@ -578,10 +657,10 @@ class ClipboardCardWidget(QWidget):
             content_label = QLabel(display_text)
             content_label.setWordWrap(True)
             content_label.setStyleSheet("""
-                color: #1e293b;
                 font-size: 12px;
                 line-height: 1.6;
             """)
+            self.labels.append(('content', content_label))
             layout.addWidget(content_label)
 
         elif self.item.type == ClipboardItem.TYPE_IMAGE:
@@ -600,7 +679,8 @@ class ClipboardCardWidget(QWidget):
                 content_layout.addSpacing(12)
 
             desc_label = QLabel("[图片]")
-            desc_label.setStyleSheet("color: #64748b; font-size: 12px;")
+            desc_label.setStyleSheet("font-size: 12px;")
+            self.labels.append(('desc', desc_label))
             content_layout.addWidget(desc_label)
             content_layout.addStretch()
             layout.addLayout(content_layout)
@@ -614,14 +694,16 @@ class ClipboardCardWidget(QWidget):
                     file_icon.setStyleSheet("font-size: 12px;")
                     file_layout.addWidget(file_icon)
                     file_name = QLabel(os.path.basename(file_path))
-                    file_name.setStyleSheet("color: #1e293b; font-size: 12px;")
+                    file_name.setStyleSheet("font-size: 12px;")
+                    self.labels.append(('content', file_name))
                     file_layout.addWidget(file_name)
                     file_layout.addStretch()
                     layout.addLayout(file_layout)
 
                 if len(self.item.content) > 3:
                     more_label = QLabel(f"... 还有 {len(self.item.content) - 3} 个文件")
-                    more_label.setStyleSheet("color: #94a3b8; font-size: 12px;")
+                    more_label.setStyleSheet("font-size: 12px;")
+                    self.labels.append(('desc', more_label))
                     layout.addWidget(more_label)
             else:
                 file_layout = QHBoxLayout()
@@ -629,7 +711,8 @@ class ClipboardCardWidget(QWidget):
                 file_icon.setStyleSheet("font-size: 12px;")
                 file_layout.addWidget(file_icon)
                 file_name = QLabel(os.path.basename(self.item.content))
-                file_name.setStyleSheet("color: #1e293b; font-size: 12px;")
+                file_name.setStyleSheet("font-size: 12px;")
+                self.labels.append(('content', file_name))
                 file_layout.addWidget(file_name)
                 file_layout.addStretch()
                 layout.addLayout(file_layout)
@@ -657,6 +740,12 @@ class ClipboardCardWidget(QWidget):
                     self.clicked.emit(self.item)
         super().mouseReleaseEvent(event)
 
+    def apply_theme(self):
+        if not self.theme_manager:
+            return
+        # 调用 update_label_colors 来根据当前状态更新颜色
+        self.update_label_colors()
+
 
 class ClipboardWindow(QWidget):
     def __init__(self, settings_manager, theme_manager, signal_handler, clipboard_manager=None):
@@ -681,6 +770,8 @@ class ClipboardWindow(QWidget):
         self.card_widgets = []  # 保存所有卡片组件的引用
 
         self.clipboard_manager.history_updated.connect(self.refresh_history)
+        self.signal_handler.theme_changed.connect(self.apply_theme)
+        self.widgets_to_style = []  # 保存需要应用主题的控件
         self.init_ui()
 
     def init_ui(self):
@@ -703,103 +794,41 @@ class ClipboardWindow(QWidget):
 
         container = QWidget()
         container.setObjectName("clipboard_container")
-        container.setStyleSheet("""
-            QWidget#clipboard_container {
-                background-color: #f8fafc;
-                border-radius: 12px;
-                border: 2px solid #3b82f6;
-            }
-        """)
+        self.container = container
+        self.widgets_to_style.append(('container', container))
         container_layout = QVBoxLayout()
         container_layout.setContentsMargins(12, 12, 12, 12)
         container_layout.setSpacing(12)
 
         top_bar_widget = QWidget()
         top_bar_widget.setObjectName("top_bar_widget")
-        top_bar_widget.setStyleSheet("""
-            QWidget#top_bar_widget {
-                background-color: transparent;
-            }
-        """)
         self.top_bar_widget = top_bar_widget
 
         top_bar = QHBoxLayout(top_bar_widget)
 
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("搜索剪贴板历史...")
-        self.search_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: #ffffff;
-                font-size: 13px;
-            }
-            QLineEdit:focus {
-                border: 1px solid #3b82f6;
-            }
-        """)
         self.search_input.textChanged.connect(self.on_search_changed)
+        self.widgets_to_style.append(('lineedit', self.search_input))
         top_bar.addWidget(self.search_input, stretch=1)
 
         self.multi_select_btn = QPushButton("☑️")
         self.multi_select_btn.setCheckable(True)
         self.multi_select_btn.setFixedSize(36, 36)
-        self.multi_select_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #ffffff;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                font-size: 16px;
-            }
-            QPushButton:hover {
-                background-color: #f1f5f9;
-            }
-            QPushButton:checked {
-                background-color: #dbeafe;
-                border: 1px solid #3b82f6;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_icon', self.multi_select_btn))
         self.multi_select_btn.clicked.connect(self.toggle_multi_select)
         top_bar.addWidget(self.multi_select_btn)
 
         self.pin_btn = QPushButton("📌")
         self.pin_btn.setCheckable(True)
         self.pin_btn.setFixedSize(36, 36)
-        self.pin_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #ffffff;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                font-size: 16px;
-            }
-            QPushButton:hover {
-                background-color: #f1f5f9;
-            }
-            QPushButton:checked {
-                background-color: #dbeafe;
-                border: 1px solid #3b82f6;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_icon', self.pin_btn))
         self.pin_btn.clicked.connect(self.toggle_pin_window)
         top_bar.addWidget(self.pin_btn)
 
         close_btn = QPushButton("✕")
         close_btn.setFixedSize(36, 36)
-        close_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #ffffff;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                font-size: 14px;
-                color: #64748b;
-            }
-            QPushButton:hover {
-                background-color: #fee2e2;
-                color: #dc2626;
-                border-color: #dc2626;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_icon', close_btn))
         close_btn.clicked.connect(self.hide)
         top_bar.addWidget(close_btn)
 
@@ -828,6 +857,7 @@ class ClipboardWindow(QWidget):
             self.update_filter_button_style(btn, filter_id == "all")
             filter_bar.addWidget(btn)
             self.filter_buttons[filter_id] = btn
+            self.widgets_to_style.append(('filter_button', btn))
 
         filter_bar.addStretch()
         container_layout.addLayout(filter_bar)
@@ -963,17 +993,59 @@ class ClipboardWindow(QWidget):
         self.bottom_bar_widget.setLayout(self.bottom_bar)
         self.bottom_bar_widget.setVisible(False)
         container_layout.addWidget(self.bottom_bar_widget)
+        
+        # 保存底部按钮引用
+        self.widgets_to_style.append(('pushbutton_action', self.select_all_btn))
+        self.widgets_to_style.append(('pushbutton_action', self.merge_copy_btn))
+        self.widgets_to_style.append(('pushbutton_action', self.merge_paste_plain_btn))
+        self.widgets_to_style.append(('pushbutton_action', self.batch_favorite_btn))
+        self.widgets_to_style.append(('pushbutton_action', self.batch_delete_btn))
 
         container.setLayout(container_layout)
         main_layout.addWidget(container)
 
         self.setLayout(main_layout)
+        self.apply_theme()
         self.refresh_history()
 
     def update_filter_button_style(self, btn, is_active):
         filter_id = btn.property("filter_id")
         color = btn.property("color")
-
+        
+        if not self.theme_manager:
+            # 如果没有主题管理器，使用默认样式
+            if is_active:
+                btn.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {color};
+                        color: white;
+                        padding: 6px 12px;
+                        border: none;
+                        border-radius: 4px;
+                        font-size: 12px;
+                        font-weight: bold;
+                    }}
+                """)
+            else:
+                btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #f1f5f9;
+                        color: #64748b;
+                        padding: 6px 12px;
+                        border: none;
+                        border-radius: 4px;
+                        font-size: 12px;
+                    }
+                    QPushButton:hover {
+                        background-color: #e2e8f0;
+                        color: #1e293b;
+                    }
+                """)
+            return
+        
+        # 使用主题颜色
+        colors = self.theme_manager.get_colors()
+        
         if is_active:
             btn.setStyleSheet(f"""
                 QPushButton {{
@@ -987,19 +1059,19 @@ class ClipboardWindow(QWidget):
                 }}
             """)
         else:
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #f1f5f9;
-                    color: #64748b;
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {colors['base']};
+                    color: {colors['text_secondary']};
                     padding: 6px 12px;
-                    border: none;
+                    border: 1px solid {colors['border']};
                     border-radius: 4px;
                     font-size: 12px;
-                }
-                QPushButton:hover {
-                    background-color: #e2e8f0;
-                    color: #1e293b;
-                }
+                }}
+                QPushButton:hover {{
+                    background-color: {colors['hover']};
+                    color: {colors['base_text']};
+                }}
             """)
 
     def on_filter_changed(self, filter_id):
@@ -1034,6 +1106,15 @@ class ClipboardWindow(QWidget):
         self.show()
         # 恢复窗口位置
         self.setGeometry(current_geometry)
+        # 聚焦搜索框
+        self.focus_search_input()
+
+    def focus_search_input(self):
+        """聚焦搜索框并清空内容"""
+        self.search_input.clear()
+        self.search_input.setFocus()
+        self.search_query = ""
+        self.refresh_history()
 
     def refresh_history(self):
         while self.scroll_layout.count() > 1:
@@ -1043,6 +1124,20 @@ class ClipboardWindow(QWidget):
                 widget.deleteLater()
 
         self.card_widgets = []  # 清空卡片引用列表
+        # 只保留持久化的widget（搜索框、按钮等），清空临时添加的widget
+        if hasattr(self, 'widgets_to_style'):
+            # 筛选出仍然有效的widget
+            valid_widgets = []
+            for widget_type, widget in self.widgets_to_style:
+                try:
+                    # 检查widget是否仍然有效
+                    if widget and widget.isVisible() is not None:
+                        valid_widgets.append((widget_type, widget))
+                except RuntimeError:
+                    # widget已被删除，跳过
+                    pass
+            self.widgets_to_style = valid_widgets
+        
         history = self.clipboard_manager.get_history(self.current_filter, self.search_query)
 
         # 确保选中索引在有效范围内
@@ -1061,13 +1156,17 @@ class ClipboardWindow(QWidget):
         if not history:
             empty_label = QLabel("暂无剪贴板历史")
             empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            empty_label.setStyleSheet("color: #94a3b8; font-size: 14px; padding: 40px;")
+            if self.theme_manager:
+                colors = self.theme_manager.get_colors()
+                empty_label.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 14px; padding: 40px;")
+            else:
+                empty_label.setStyleSheet("color: #94a3b8; font-size: 14px; padding: 40px;")
             self.scroll_layout.insertWidget(0, empty_label)
             return
 
         for index, item in enumerate(reversed(history)):
             is_selected = (index == self.current_selected_index)
-            card = ClipboardCardWidget(item, index=index, is_selected=is_selected)
+            card = ClipboardCardWidget(item, index=index, is_selected=is_selected, theme_manager=self.theme_manager)
             card.clicked.connect(lambda i=item, idx=index: self.on_card_clicked(i, idx))
             card.drag_started.connect(lambda i, idx=index: self.on_card_drag_started(i, idx))
             card.favorite_toggled.connect(lambda i=item: self.toggle_item_favorite(i))
@@ -1084,19 +1183,22 @@ class ClipboardWindow(QWidget):
 
                 checkbox = QCheckBox()
                 checkbox.setChecked(item in self.selected_items)
-                checkbox.setStyleSheet("""
-                    QCheckBox::indicator {
-                        width: 20px;
-                        height: 20px;
-                        border: 2px solid #cbd5e1;
-                        border-radius: 4px;
-                        background-color: white;
-                    }
-                    QCheckBox::indicator:checked {
-                        background-color: #3b82f6;
-                        border-color: #3b82f6;
-                    }
-                """)
+                if self.theme_manager:
+                    checkbox.setStyleSheet(self.theme_manager.get_checkbox_style())
+                else:
+                    checkbox.setStyleSheet("""
+                        QCheckBox::indicator {
+                            width: 20px;
+                            height: 20px;
+                            border: 2px solid #cbd5e1;
+                            border-radius: 4px;
+                            background-color: white;
+                        }
+                        QCheckBox::indicator:checked {
+                            background-color: #3b82f6;
+                            border-color: #3b82f6;
+                        }
+                    """)
                 checkbox.stateChanged.connect(lambda state, i=item, cb=checkbox: self.on_item_check_changed(i, cb))
 
                 card_layout.addWidget(checkbox)
@@ -1348,7 +1450,7 @@ class ClipboardWindow(QWidget):
         if item.type != ClipboardItem.TYPE_TEXT:
             return
 
-        dialog = TextEditDialog(item.content, self)
+        dialog = TextEditDialog(item.content, self, self.theme_manager)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             new_text = dialog.get_text()
             if new_text:
@@ -1358,7 +1460,7 @@ class ClipboardWindow(QWidget):
         if item.type != ClipboardItem.TYPE_IMAGE:
             return
 
-        editor = AnnotationEditor(item.content)
+        editor = AnnotationEditor(item.content, self.theme_manager)
         editor.save_clicked.connect(lambda img: self.on_image_edited(item, img))
         editor.copy_clicked.connect(lambda img: self.on_image_edited(item, img))
         editor.show()
@@ -1373,14 +1475,14 @@ class ClipboardWindow(QWidget):
 
         content = item.content
         content_type = "text" if item.type == ClipboardItem.TYPE_TEXT else "image"
-        dialog = AIChatDialog(content, content_type, "explain", self.settings_manager, self)
+        dialog = AIChatDialog(content, content_type, "explain", self.settings_manager, self.theme_manager, self)
         dialog.exec()
 
     def ai_translate(self, item):
         if item.type != ClipboardItem.TYPE_TEXT:
             return
 
-        dialog = AIChatDialog(item.content, "text", "translate", self.settings_manager, self)
+        dialog = AIChatDialog(item.content, "text", "translate", self.settings_manager, self.theme_manager, self)
         dialog.exec()
 
     def delete_item(self, item):
@@ -1576,6 +1678,166 @@ class ClipboardWindow(QWidget):
             self.enter_pressed()
         else:
             super().keyPressEvent(event)
+
+    def apply_theme(self):
+        colors = self.theme_manager.get_colors()
+        
+        # 应用容器样式
+        try:
+            self.container.setStyleSheet(f"""
+                QWidget#clipboard_container {{
+                    background-color: {colors['window']};
+                    border-radius: 12px;
+                    border: 2px solid {colors['highlight']};
+                }}
+            """)
+        except RuntimeError:
+            pass
+        
+        # 应用滚动条样式
+        try:
+            self.scroll_area.setStyleSheet(f"""
+                QScrollArea {{
+                    background-color: transparent;
+                    border: none;
+                }}
+                QScrollBar:vertical {{
+                    width: 8px;
+                    background-color: {colors['base']};
+                    border-radius: 4px;
+                }}
+                QScrollBar::handle:vertical {{
+                    background-color: {colors['border']};
+                    border-radius: 4px;
+                }}
+                QScrollBar::handle:vertical:hover {{
+                    background-color: {colors['hover']};
+                }}
+            """)
+        except RuntimeError:
+            pass
+        
+        # 应用其他控件样式
+        valid_widgets = []
+        for widget_type, widget in self.widgets_to_style:
+            try:
+                if widget_type == 'lineedit':
+                    widget.setStyleSheet(self.theme_manager.get_line_edit_style())
+                    valid_widgets.append((widget_type, widget))
+                elif widget_type == 'checkbox':
+                    widget.setStyleSheet(self.theme_manager.get_checkbox_style())
+                    valid_widgets.append((widget_type, widget))
+                elif widget_type == 'pushbutton_default':
+                    widget.setStyleSheet(self.theme_manager.get_push_button_style('default'))
+                    valid_widgets.append((widget_type, widget))
+                elif widget_type == 'pushbutton_danger':
+                    widget.setStyleSheet(self.theme_manager.get_push_button_style('danger'))
+                    valid_widgets.append((widget_type, widget))
+                elif widget_type == 'pushbutton_icon':
+                    widget.setStyleSheet(self.theme_manager.get_push_button_style('icon'))
+                    valid_widgets.append((widget_type, widget))
+                elif widget_type == 'filter_button':
+                    is_active = widget.isChecked()
+                    self.update_filter_button_style(widget, is_active)
+                    valid_widgets.append((widget_type, widget))
+                elif widget_type == 'pushbutton_action':
+                    # 更新动作按钮样式
+                    btn_text = widget.text()
+                    if '全选' in btn_text or '取消全选' in btn_text:
+                        widget.setStyleSheet(f"""
+                            QPushButton {{
+                                background-color: #6366f1;
+                                color: white;
+                                padding: 8px 16px;
+                                border: none;
+                                border-radius: 6px;
+                                font-size: 13px;
+                                font-weight: bold;
+                            }}
+                            QPushButton:hover {{
+                                background-color: #4f46e5;
+                            }}
+                        """)
+                    elif '复制合并' in btn_text:
+                        widget.setStyleSheet(f"""
+                            QPushButton {{
+                                background-color: #3b82f6;
+                                color: white;
+                                padding: 8px 16px;
+                                border: none;
+                                border-radius: 6px;
+                                font-size: 13px;
+                                font-weight: bold;
+                            }}
+                            QPushButton:hover {{
+                                background-color: #2563eb;
+                            }}
+                        """)
+                    elif '合并粘贴' in btn_text:
+                        widget.setStyleSheet(f"""
+                            QPushButton {{
+                                background-color: #10b981;
+                                color: white;
+                                padding: 8px 16px;
+                                border: none;
+                                border-radius: 6px;
+                                font-size: 13px;
+                                font-weight: bold;
+                            }}
+                            QPushButton:hover {{
+                                background-color: #059669;
+                            }}
+                        """)
+                    elif '批量收藏' in btn_text:
+                        widget.setStyleSheet(f"""
+                            QPushButton {{
+                                background-color: #f59e0b;
+                                color: white;
+                                padding: 8px 16px;
+                                border: none;
+                                border-radius: 6px;
+                                font-size: 13px;
+                                font-weight: bold;
+                            }}
+                            QPushButton:hover {{
+                                background-color: #d97706;
+                            }}
+                        """)
+                    elif '批量删除' in btn_text:
+                        widget.setStyleSheet(f"""
+                            QPushButton {{
+                                background-color: #ef4444;
+                                color: white;
+                                padding: 8px 16px;
+                                border: none;
+                                border-radius: 6px;
+                                font-size: 13px;
+                                font-weight: bold;
+                            }}
+                            QPushButton:hover {{
+                                background-color: #dc2626;
+                            }}
+                        """)
+                    valid_widgets.append((widget_type, widget))
+                elif widget_type == 'label':
+                    widget.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 14px; padding: 40px;")
+                    valid_widgets.append((widget_type, widget))
+            except RuntimeError:
+                # widget已被删除，跳过
+                pass
+        
+        # 更新有效的widget列表
+        self.widgets_to_style = valid_widgets
+        
+        # 更新现有卡片
+        for card in self.card_widgets:
+            try:
+                if hasattr(card, 'apply_theme'):
+                    card.apply_theme()
+                if hasattr(card, 'update'):
+                    card.update()
+            except RuntimeError:
+                pass
 
     def navigate_down(self):
         if not self.card_widgets:

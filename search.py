@@ -3,12 +3,10 @@ import os
 import threading
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QLineEdit, QMessageBox, QVBoxLayout, QListWidget, QListWidgetItem,
-    QFileIconProvider
+    QFileIconProvider, QSystemTrayIcon, QMenu
 )
 from PyQt6.QtCore import Qt, QPoint, QTimer, QSize
-from PyQt6.QtGui import QPainter, QBrush, QColor, QIcon
-import pystray
-from PIL import Image, ImageDraw
+from PyQt6.QtGui import QPainter, QBrush, QColor, QIcon, QAction
 import keyboard
 from rapidfuzz import fuzz
 from settings import (
@@ -49,7 +47,7 @@ class SearchWindow(QWidget):
         self.clipboard_manager = ClipboardManager(self.settings_manager)
         # 创建截图管理器
         from screenshot import ScreenshotManager
-        self.screenshot_manager = ScreenshotManager(self.settings_manager)
+        self.screenshot_manager = ScreenshotManager(self.settings_manager, self.theme_manager)
         # 用于跟踪当前注册的热键
         self.current_search_hotkey = None
         self.current_clipboard_hotkey = None
@@ -142,106 +140,56 @@ class SearchWindow(QWidget):
         self.setLayout(main_layout)
     
     def update_search_input_style(self):
-        theme = self.theme_manager.current_theme
-        if theme == 'auto':
-            theme = 'dark' if self.theme_manager.is_system_dark() else 'light'
-        
-        if theme == 'dark':
-            self.search_input.setStyleSheet("""
-                QLineEdit {
-                    background-color: #2b3548;
-                    color: #e2e8f0;
-                    border: 1px solid #38455a;
-                    border-radius: 12px;
-                    padding-left: 22px;
-                    padding-right: 22px;
-                    font-size: 20px;
-                }
-                QLineEdit:focus {
-                    border: 1px solid #60a5fa;
-                    outline: none;
-                }
-            """)
-        else:
-            self.search_input.setStyleSheet("""
-                QLineEdit {
-                    background-color: #ffffff;
-                    color: #0f172a;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 12px;
-                    padding-left: 22px;
-                    padding-right: 22px;
-                    font-size: 20px;
-                }
-                QLineEdit:focus {
-                    border: 1px solid #3b82f6;
-                    outline: none;
-                }
-            """)
+        # 使用ThemeManager的样式
+        colors = self.theme_manager.get_colors()
+        self.search_input.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {colors['base']};
+                color: {colors['window_text']};
+                border: 1px solid {colors['border']};
+                border-radius: 12px;
+                padding-left: 22px;
+                padding-right: 22px;
+                font-size: 20px;
+            }}
+            QLineEdit:focus {{
+                border: 1px solid {colors['highlight']};
+                outline: none;
+            }}
+        """)
     
     def update_app_list_style(self):
-        theme = self.theme_manager.current_theme
-        if theme == 'auto':
-            theme = 'dark' if self.theme_manager.is_system_dark() else 'light'
-        
-        if theme == 'dark':
-            self.app_list.setStyleSheet("""
-                QListWidget {
-                    background-color: #1E293B;
-                    color: #e2e8f0;
-                    border: 1px solid #38455a;
-                    border-radius: 12px;
-                    padding: 8px;
-                    font-size: 16px;
-                }
-                QListWidget::item {
-                    padding: 8px;
-                    border-radius: 8px;
-                    margin: 2px 0;
-                }
-                QListWidget::item:selected {
-                    background-color: #3B82F6;
-                    color: white;
-                }
-                QListWidget::item:hover:!selected {
-                    background-color: #334155;
-                }
-            """)
-        else:
-            self.app_list.setStyleSheet("""
-                QListWidget {
-                    background-color: #F8FAFC;
-                    color: #0f172a;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 12px;
-                    padding: 8px;
-                    font-size: 16px;
-                }
-                QListWidget::item {
-                    padding: 8px;
-                    border-radius: 8px;
-                    margin: 2px 0;
-                }
-                QListWidget::item:selected {
-                    background-color: #3B82F6;
-                    color: white;
-                }
-                QListWidget::item:hover:!selected {
-                    background-color: #E2E8F0;
-                }
-            """)
+        # 使用ThemeManager的颜色
+        colors = self.theme_manager.get_colors()
+        self.app_list.setStyleSheet(f"""
+            QListWidget {{
+                background-color: {colors['window']};
+                color: {colors['window_text']};
+                border: 1px solid {colors['border']};
+                border-radius: 12px;
+                padding: 8px;
+                font-size: 16px;
+            }}
+            QListWidget::item {{
+                padding: 8px;
+                border-radius: 8px;
+                margin: 2px 0;
+            }}
+            QListWidget::item:selected {{
+                background-color: {colors['highlight']};
+                color: {colors['highlight_text']};
+            }}
+            QListWidget::item:hover:!selected {{
+                background-color: {colors['hover']};
+            }}
+        """)
     
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        theme = self.theme_manager.current_theme
-        if theme == 'auto':
-            theme = 'dark' if self.theme_manager.is_system_dark() else 'light'
-        
-        if theme == 'dark':
-            painter.setBrush(QBrush(QColor("#1E293B")))
-        else:
-            painter.setBrush(QBrush(QColor("#F8FAFC")))
+        # 使用ThemeManager的颜色
+        colors = self.theme_manager.get_colors()
+        painter.setBrush(QBrush(QColor(colors['window'])))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(self.rect(), 14, 14)
     
@@ -508,57 +456,127 @@ class SearchWindow(QWidget):
         self.clipboard_window.show()
         self.clipboard_window.activateWindow()
         self.clipboard_window.raise_()
+        # 聚焦搜索框
+        self.clipboard_window.search_input.setFocus()
     
     def on_theme_changed(self, theme):
         self.update_search_input_style()
         self.update_app_list_style()
+        self.apply_tray_theme()
         self.update()
     
     def show_notification(self):
         """显示启动通知"""
         if self.tray_icon is not None:
-            self.tray_icon.notify(
-                title="KillAll3k",
-                message="程序已启动！按 Alt+Space 打开搜索框"
+            self.tray_icon.showMessage(
+                "KillAll3k",
+                "程序已启动！按 Alt+Space 打开搜索框",
+                QSystemTrayIcon.MessageIcon.Information,
+                3000
             )
     
     def setup_tray(self):
+        """设置系统托盘图标"""
         icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo.ico')
         try:
-            icon_image = Image.open(icon_path)
+            icon = QIcon(icon_path)
         except Exception:
             # 如果加载失败，使用默认图标
-            icon_image = self.create_tray_icon()
+            icon = self.create_tray_icon()
         
-        menu = pystray.Menu(
-            pystray.MenuItem('显示搜索窗口', self.on_tray_show),
-            pystray.MenuItem('剪贴板历史', self.on_tray_clipboard),
-            pystray.MenuItem('设置', self.on_tray_settings),
-            pystray.MenuItem('退出', self.on_tray_quit)
-        )
-        self.tray_icon = pystray.Icon("KillAll3k", icon_image, "KillAll3k", menu)
-        threading.Thread(target=self.tray_icon.run, daemon=True).start()
-
-    @staticmethod
-    def create_tray_icon():
-        width, height = 64, 64
-        # 完全透明的背景
-        image = Image.new('RGBA', (width, height), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(image)
+        self.tray_icon = QSystemTrayIcon(self)
+        self.tray_icon.setIcon(icon)
+        self.tray_icon.setToolTip("KillAll3k")
         
-        # 尝试使用系统字体，如果失败则使用默认字体
-        try:
-            from PIL import ImageFont
-            font = ImageFont.truetype("arialbd.ttf", 64)
-        except Exception:
-            try:
-                font = ImageFont.truetype("msyhdb.ttc", 64)  # 微软雅黑
-            except Exception:
-                font = ImageFont.load_default()
+        # 创建托盘菜单
+        self.tray_menu = QMenu()
         
-        # 使用蓝色字体 (59, 130, 246)
-        draw.text((32, 32), 'K', fill=(59, 130, 246, 255), anchor='mm', font=font)
-        return image
+        self.action_show = QAction("显示搜索窗口", self)
+        self.action_show.triggered.connect(self.on_tray_show)
+        self.tray_menu.addAction(self.action_show)
+        
+        self.action_clipboard = QAction("剪贴板历史", self)
+        self.action_clipboard.triggered.connect(self.on_tray_clipboard)
+        self.tray_menu.addAction(self.action_clipboard)
+        
+        self.action_settings = QAction("设置", self)
+        self.action_settings.triggered.connect(self.on_tray_settings)
+        self.tray_menu.addAction(self.action_settings)
+        
+        self.tray_menu.addSeparator()
+        
+        self.action_quit = QAction("退出", self)
+        self.action_quit.triggered.connect(self.on_tray_quit)
+        self.tray_menu.addAction(self.action_quit)
+        
+        self.tray_icon.setContextMenu(self.tray_menu)
+        
+        # 托盘图标双击事件
+        self.tray_icon.activated.connect(self.on_tray_activated)
+        
+        self.tray_icon.show()
+        
+        # 应用主题
+        self.apply_tray_theme()
+    
+    def create_tray_icon(self):
+        """创建默认托盘图标"""
+        pixmap = QPixmap(64, 64)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # 绘制蓝色圆形
+        painter.setBrush(QColor(59, 130, 246))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(8, 8, 48, 48)
+        
+        # 绘制白色 K 字
+        painter.setPen(QColor(255, 255, 255))
+        font = painter.font()
+        font.setPixelSize(40)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "K")
+        
+        painter.end()
+        
+        return QIcon(pixmap)
+    
+    def apply_tray_theme(self):
+        """应用托盘菜单主题"""
+        if not self.theme_manager:
+            return
+        colors = self.theme_manager.get_colors()
+        
+        # 设置菜单样式
+        self.tray_menu.setStyleSheet(f"""
+            QMenu {{
+                background-color: {colors['base']};
+                border: 1px solid {colors['border']};
+                padding: 4px;
+            }}
+            QMenu::item {{
+                background-color: transparent;
+                padding: 6px 24px 6px 24px;
+                color: {colors['base_text']};
+            }}
+            QMenu::item:selected {{
+                background-color: {colors['highlight']};
+                color: {colors['highlight_text']};
+            }}
+            QMenu::separator {{
+                height: 1px;
+                background-color: {colors['border']};
+                margin: 4px 8px 4px 8px;
+            }}
+        """)
+    
+    def on_tray_activated(self, reason):
+        """托盘图标激活事件"""
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            self.on_tray_show()
     
     def setup_hotkey(self):
         # 初始化搜索框热键
@@ -640,23 +658,21 @@ class SearchWindow(QWidget):
         self.hide_window()
         QTimer.singleShot(100, self.screenshot_manager.take_screenshot)
     
-    def on_tray_show(self, icon, item):
+    def on_tray_show(self):
         self.signal_handler.show_window.emit()
     
-    def on_tray_clipboard(self, icon, item):
+    def on_tray_clipboard(self):
         self.signal_handler.show_clipboard.emit()
     
-    def on_tray_settings(self, icon, item):
+    def on_tray_settings(self):
         self.signal_handler.show_settings.emit()
     
-    def on_tray_quit(self, icon, item):
+    def on_tray_quit(self):
         self.signal_handler.quit_app.emit()
     
     def safe_quit(self):
-        def stop_tray():
-            if self.tray_icon:
-                self.tray_icon.stop()
-        threading.Thread(target=stop_tray, daemon=True).start()
+        if self.tray_icon:
+            self.tray_icon.hide()
         QTimer.singleShot(100, QApplication.quit)
 
 

@@ -120,6 +120,11 @@ class ThemeManager:
         except:
             return False
     
+    def get_effective_theme(self):
+        if self.current_theme == 'auto':
+            return 'dark' if self.is_system_dark() else 'light'
+        return self.current_theme
+    
     def apply_theme(self, theme):
         self.current_theme = theme
         from PyQt6.QtWidgets import QApplication
@@ -161,11 +166,339 @@ class ThemeManager:
             palette.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
         
         app.setPalette(palette)
+    
+    def get_colors(self):
+        theme = self.get_effective_theme()
+        if theme == 'dark':
+            return {
+                'window': '#1e293b',
+                'window_text': '#e2e8f0',
+                'base': '#2d3748',
+                'base_text': '#e2e8f0',
+                'button': '#334155',
+                'button_text': '#e2e8f0',
+                'border': '#475569',
+                'highlight': '#60a5fa',
+                'highlight_text': '#0f172a',
+                'hover': '#3b4a60',
+                'surface': '#2d3748',
+                'text_secondary': '#94a3b8',
+                'success': '#10b981',
+                'warning': '#f59e0b',
+                'error': '#ef4444',
+                'info': '#60a5fa'
+            }
+        else:
+            return {
+                'window': '#f8fafc',
+                'window_text': '#0f172a',
+                'base': '#ffffff',
+                'base_text': '#0f172a',
+                'button': '#f1f5f9',
+                'button_text': '#0f172a',
+                'border': '#e2e8f0',
+                'highlight': '#3b82f6',
+                'highlight_text': '#ffffff',
+                'hover': '#e2e8f0',
+                'surface': '#ffffff',
+                'text_secondary': '#64748b',
+                'success': '#10b981',
+                'warning': '#f59e0b',
+                'error': '#ef4444',
+                'info': '#3b82f6'
+            }
+    
+    def get_line_edit_style(self):
+        colors = self.get_colors()
+        return f"""
+            QLineEdit {{
+                background-color: {colors['base']};
+                color: {colors['base_text']};
+                border: 1px solid {colors['border']};
+                border-radius: 6px;
+                padding: 8px 12px;
+            }}
+            QLineEdit:focus {{
+                border: 1px solid {colors['highlight']};
+            }}
+        """
+    
+    def get_push_button_style(self, btn_type='default'):
+        colors = self.get_colors()
+        if btn_type == 'icon':
+            # 图标按钮专用样式，无padding
+            return f"""
+                QPushButton {{
+                    background-color: {colors['button']};
+                    color: {colors['button_text']};
+                    border: 1px solid {colors['border']};
+                    border-radius: 6px;
+                    padding: 0px;
+                    font-size: 18px;
+                }}
+                QPushButton:hover {{
+                    background-color: {colors['hover']};
+                }}
+            """
+        elif btn_type == 'primary':
+            return f"""
+                QPushButton {{
+                    background-color: {colors['highlight']};
+                    color: {colors['highlight_text']};
+                    border: none;
+                    border-radius: 6px;
+                    padding: 8px 16px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    background-color: #3b82f6;
+                }}
+                QPushButton:pressed {{
+                    background-color: #2563eb;
+                }}
+            """
+        elif btn_type == 'success':
+            return f"""
+                QPushButton {{
+                    background-color: {colors['success']};
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    padding: 8px 16px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    background-color: #059669;
+                }}
+            """
+        elif btn_type == 'danger':
+            return f"""
+                QPushButton {{
+                    background-color: {colors['error']};
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    padding: 8px 16px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    background-color: #dc2626;
+                }}
+            """
+        else:
+            return f"""
+                QPushButton {{
+                    background-color: {colors['button']};
+                    color: {colors['button_text']};
+                    border: 1px solid {colors['border']};
+                    border-radius: 6px;
+                    padding: 8px 16px;
+                }}
+                QPushButton:hover {{
+                    background-color: {colors['hover']};
+                }}
+            """
+    
+    def get_combobox_style(self):
+        colors = self.get_colors()
+        return f"""
+            QComboBox {{
+                background-color: {colors['base']};
+                color: {colors['base_text']};
+                border: 1px solid {colors['border']};
+                border-radius: 6px;
+                padding: 8px 32px 8px 12px;
+                min-height: 30px;
+            }}
+            QComboBox:hover {{
+                border: 1px solid {colors['highlight']};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 30px;
+                background-color: transparent;
+            }}
+            QComboBox::down-arrow {{
+                width: 0;
+                height: 0;
+                border-left: 4px solid ;
+                border-right: 4px solid ;
+                border-top: 6px solid {colors['text_secondary']};
+                subcontrol-origin: padding;
+                subcontrol-position: right center;
+                right: 8px;
+            }}
+            QComboBox::down-arrow:hover {{
+                border-top-color: {colors['highlight']};
+            }}
+            QComboBox::down-arrow:on {{
+                border-top-color: {colors['highlight']};
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {colors['window']};
+                color: {colors['window_text']};
+                border: 1px solid {colors['border']};
+                border-radius: 6px;
+                selection-background-color: {colors['highlight']};
+                selection-color: {colors['highlight_text']};
+                padding: 4px;
+                outline: none;
+            }}
+            QComboBox QAbstractItemView::item {{
+                padding: 8px 12px;
+                border-radius: 4px;
+                margin: 2px;
+            }}
+            QComboBox QAbstractItemView::item:hover {{
+                background-color: {colors['hover']};
+            }}
+        """
+    
+    def get_list_widget_style(self):
+        colors = self.get_colors()
+        return f"""
+            QListWidget {{
+                background-color: {colors['base']};
+                color: {colors['base_text']};
+                border: 1px solid {colors['border']};
+                border-radius: 8px;
+                padding: 4px;
+            }}
+            QListWidget::item {{
+                padding: 8px;
+                border-radius: 4px;
+                margin: 2px 0;
+            }}
+            QListWidget::item:selected {{
+                background-color: {colors['highlight']};
+                color: {colors['highlight_text']};
+            }}
+            QListWidget::item:hover:!selected {{
+                background-color: {colors['hover']};
+            }}
+        """
+    
+    def get_checkbox_style(self):
+        colors = self.get_colors()
+        return f"""
+            QCheckBox {{
+                color: {colors['window_text']};
+                padding: 5px;
+                font-size: 14px;
+            }}
+            QCheckBox::indicator {{
+                width: 18px;
+                height: 18px;
+                border: 2px solid {colors['border']};
+                border-radius: 4px;
+                background-color: {colors['base']};
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {colors['highlight']};
+                border-color: {colors['highlight']};
+            }}
+            QCheckBox::indicator:hover {{
+                border-color: {colors['highlight']};
+            }}
+        """
+    
+    def get_groupbox_style(self):
+        colors = self.get_colors()
+        return f"""
+            QGroupBox {{
+                color: {colors['window_text']};
+                border: 1px solid {colors['border']};
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 15px;
+                font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+            }}
+        """
+    
+    def get_textedit_style(self):
+        colors = self.get_colors()
+        return f"""
+            QTextEdit {{
+                background-color: {colors['base']};
+                color: {colors['base_text']};
+                border: 1px solid {colors['border']};
+                border-radius: 8px;
+                padding: 12px;
+            }}
+            QTextEdit:focus {{
+                border: 1px solid {colors['highlight']};
+            }}
+        """
+    
+    def get_scrollbar_style(self):
+        colors = self.get_colors()
+        return f"""
+            QScrollBar:vertical {{
+                width: 10px;
+                background-color: {colors['window']};
+                border-radius: 5px;
+            }}
+            QScrollBar::handle:vertical {{
+                background-color: {colors['border']};
+                border-radius: 5px;
+                min-height: 30px;
+            }}
+            QScrollBar::handle:vertical:hover {{
+                background-color: {colors['text_secondary']};
+            }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+                height: 0px;
+            }}
+            QScrollBar:horizontal {{
+                height: 10px;
+                background-color: {colors['window']};
+                border-radius: 5px;
+            }}
+            QScrollBar::handle:horizontal {{
+                background-color: {colors['border']};
+                border-radius: 5px;
+                min-width: 30px;
+            }}
+            QScrollBar::handle:horizontal:hover {{
+                background-color: {colors['text_secondary']};
+            }}
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
+                width: 0px;
+            }}
+        """
+    
+    def get_sidebar_style(self):
+        colors = self.get_colors()
+        return f"""
+            QListWidget {{
+                background-color: {colors['surface']};
+                border-right: 1px solid {colors['border']};
+                font-size: 14px;
+            }}
+            QListWidget::item {{
+                padding: 12px 20px;
+                color: {colors['text_secondary']};
+                border: none;
+            }}
+            QListWidget::item:selected {{
+                background-color: {colors['hover']};
+                color: {colors['highlight']};
+                font-weight: bold;
+            }}
+            QListWidget::item:hover {{
+                background-color: {colors['hover']};
+            }}
+        """
 
 
 class AutoStartManager:
     def __init__(self):
-        self.app_name = "KillAll3k"
+        self.app_name = "KillAll3k (要你命三千)"
         self.registry_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
     
     def is_admin(self):
@@ -228,11 +561,12 @@ class AutoStartManager:
 
 
 class CollapsibleGroup(QWidget):
-    def __init__(self, title, parent_widget, index):
+    def __init__(self, title, parent_widget, index, theme_manager=None):
         super().__init__()
         self.is_expanded = False
         self.index = index
         self.parent_widget = parent_widget
+        self.theme_manager = theme_manager
         self.init_ui(title)
     
     def init_ui(self, title):
@@ -242,30 +576,14 @@ class CollapsibleGroup(QWidget):
         
         # 标题栏
         header = QPushButton()
-        header.setStyleSheet("""
-            QPushButton {
-                text-align: left;
-                padding: 12px 15px;
-                background-color: #f8fafc;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                font-weight: bold;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #f1f5f9;
-            }
-        """)
-        header.clicked.connect(self.toggle)
         self.header_btn = header
+        header.clicked.connect(self.toggle)
         
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(0, 0, 0, 0)
         self.arrow_label = QLabel("▼")
-        self.arrow_label.setStyleSheet("font-size: 12px;")
         self.title_label = QLabel(title)
         self.enabled_label = QLabel("")
-        self.enabled_label.setStyleSheet("color: #10b981; font-size: 12px;")
         
         header_layout.addWidget(self.arrow_label)
         header_layout.addWidget(self.title_label)
@@ -287,6 +605,36 @@ class CollapsibleGroup(QWidget):
         # 设置初始状态
         self.content_widget.setVisible(self.is_expanded)
         self.arrow_label.setText("▼" if self.is_expanded else "▶")
+        
+        # 应用主题样式
+        self.apply_theme()
+    
+    def apply_theme(self):
+        if not self.theme_manager:
+            return
+        
+        colors = self.theme_manager.get_colors()
+        
+        self.header_btn.setStyleSheet(f"""
+            QPushButton {{
+                text-align: left;
+                padding: 12px 15px;
+                background-color: {colors['surface']};
+                border: 1px solid {colors['border']};
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 14px;
+                color: {colors['window_text']};
+            }}
+            QPushButton:hover {{
+                background-color: {colors['hover']};
+            }}
+        """)
+        
+        self.arrow_label.setStyleSheet(f"font-size: 12px; color: {colors['window_text']};")
+        self.title_label.setStyleSheet(f"color: {colors['window_text']};")
+        
+        self.set_enabled_status(self.enabled_label.text() == "(已启用)")
     
     def toggle(self):
         self.is_expanded = not self.is_expanded
@@ -295,7 +643,10 @@ class CollapsibleGroup(QWidget):
     
     def set_enabled_status(self, enabled):
         self.enabled_label.setText("(已启用)" if enabled else "(已禁用)")
-        self.enabled_label.setStyleSheet("color: #10b981;" if enabled else "color: #94a3b8;")
+        colors = self.theme_manager.get_colors() if self.theme_manager else None
+        success_color = colors['success'] if colors else '#10b981'
+        secondary_color = colors['text_secondary'] if colors else '#94a3b8'
+        self.enabled_label.setStyleSheet(f"color: {success_color};" if enabled else f"color: {secondary_color};")
     
     def update_title(self, title):
         self.title_label.setText(title)
@@ -311,6 +662,7 @@ class SettingsWindow(QWidget):
         self.ai_model_inputs = []
         self.ai_collapsible_groups = []
         self.scan_dirs_list = None
+        self.widgets_to_style = []  # 保存需要应用主题的控件
         self.providers = {
             'OpenAI': {'api_url': 'https://api.openai.com/v1/chat/completions', 'model': 'gpt-3.5-turbo'},
             'DeepSeek': {'api_url': 'https://api.deepseek.com/v1/chat/completions', 'model': 'deepseek-chat'},
@@ -321,6 +673,8 @@ class SettingsWindow(QWidget):
         }
         self.init_ui()
         self.load_settings()
+        # 连接主题变化信号
+        self.signal_handler.theme_changed.connect(self.on_theme_changed_external)
     
     def init_ui(self):
         self.setWindowTitle("设置")
@@ -333,29 +687,10 @@ class SettingsWindow(QWidget):
         main_layout.setSpacing(0)
         
         # 侧边栏
-        sidebar = QListWidget()
-        sidebar.setFixedWidth(200)
-        sidebar.setFrameShape(QFrame.Shape.NoFrame)
-        sidebar.setStyleSheet("""
-            QListWidget {
-                background-color: #f1f5f9;
-                border-right: 1px solid #e2e8f0;
-                font-size: 14px;
-            }
-            QListWidget::item {
-                padding: 12px 20px;
-                color: #475569;
-                border: none;
-            }
-            QListWidget::item:selected {
-                background-color: #e0f2fe;
-                color: #0369a1;
-                font-weight: bold;
-            }
-            QListWidget::item:hover {
-                background-color: #e2e8f0;
-            }
-        """)
+        self.sidebar = QListWidget()
+        self.sidebar.setFixedWidth(200)
+        self.sidebar.setFrameShape(QFrame.Shape.NoFrame)
+        self.widgets_to_style.append(('sidebar', self.sidebar))
         
         item1 = QListWidgetItem("⚙️ 系统功能设置")
         item2 = QListWidgetItem("🔌 系统代理设置")
@@ -364,15 +699,15 @@ class SettingsWindow(QWidget):
         item5 = QListWidgetItem("📁 文件搜索设置")
         item6 = QListWidgetItem("📋 剪贴板设置")
         item7 = QListWidgetItem("📷 截图设置")
-        sidebar.addItem(item1)
-        sidebar.addItem(item2)
-        sidebar.addItem(item3)
-        sidebar.addItem(item4)
-        sidebar.addItem(item5)
-        sidebar.addItem(item6)
-        sidebar.addItem(item7)
-        sidebar.setCurrentRow(0)
-        sidebar.currentRowChanged.connect(self.switch_page)
+        self.sidebar.addItem(item1)
+        self.sidebar.addItem(item2)
+        self.sidebar.addItem(item3)
+        self.sidebar.addItem(item4)
+        self.sidebar.addItem(item5)
+        self.sidebar.addItem(item6)
+        self.sidebar.addItem(item7)
+        self.sidebar.setCurrentRow(0)
+        self.sidebar.currentRowChanged.connect(self.switch_page)
         
         # 主内容区
         self.stacked_widget = QStackedWidget()
@@ -384,10 +719,13 @@ class SettingsWindow(QWidget):
         self.stacked_widget.addWidget(self.create_clipboard_settings_page())
         self.stacked_widget.addWidget(self.create_screenshot_settings_page())
         
-        main_layout.addWidget(sidebar)
+        main_layout.addWidget(self.sidebar)
         main_layout.addWidget(self.stacked_widget, 1)
         
         self.setLayout(main_layout)
+        
+        # 应用主题样式
+        self.apply_theme()
     
     def create_system_settings_page(self):
         page = QWidget()
@@ -397,26 +735,22 @@ class SettingsWindow(QWidget):
         
         title = QLabel("系统功能设置")
         title.setFont(QFont("Microsoft YaHei", 16, QFont.Weight.Bold))
+        # 设置标题颜色
+        self.widgets_to_style.append(('title', title))
         layout.addWidget(title)
         
         # 主题设置
         theme_group = QGroupBox("主题设置")
+        self.widgets_to_style.append(('groupbox', theme_group))
         theme_layout = QVBoxLayout()
         theme_layout.setSpacing(15)
         
         theme_label = QLabel("主题模式：")
+        self.widgets_to_style.append(('label', theme_label))
         self.theme_combo = QComboBox()
         self.theme_combo.addItems(["自动跟随系统", "浅色主题", "深色主题"])
         self.theme_combo.currentIndexChanged.connect(self.on_theme_changed)
-        self.theme_combo.setStyleSheet("""
-            QComboBox {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-                min-height: 30px;
-            }
-        """)
+        self.widgets_to_style.append(('combobox', self.theme_combo))
         
         theme_layout.addWidget(theme_label)
         theme_layout.addWidget(self.theme_combo)
@@ -425,20 +759,21 @@ class SettingsWindow(QWidget):
         
         # 系统设置
         system_group = QGroupBox("系统设置")
+        self.widgets_to_style.append(('groupbox', system_group))
         system_layout = QVBoxLayout()
         system_layout.setSpacing(15)
         
         self.auto_start_check = QCheckBox("开机自启动")
         self.auto_start_check.toggled.connect(self.on_auto_start_changed)
-        self.auto_start_check.setStyleSheet("QCheckBox { font-size: 14px; padding: 5px; }")
+        self.widgets_to_style.append(('checkbox', self.auto_start_check))
         
         self.notification_check = QCheckBox("启动通知")
         self.notification_check.toggled.connect(self.on_notification_changed)
-        self.notification_check.setStyleSheet("QCheckBox { font-size: 14px; padding: 5px; }")
+        self.widgets_to_style.append(('checkbox', self.notification_check))
         
         self.admin_check = QCheckBox("管理员权限运行")
         self.admin_check.toggled.connect(self.on_admin_changed)
-        self.admin_check.setStyleSheet("QCheckBox { font-size: 14px; padding: 5px; }")
+        self.widgets_to_style.append(('checkbox', self.admin_check))
         
         system_layout.addWidget(self.auto_start_check)
         system_layout.addWidget(self.notification_check)
@@ -448,19 +783,13 @@ class SettingsWindow(QWidget):
         
         # 快捷键设置
         hotkey_group = QGroupBox("快捷键设置")
+        self.widgets_to_style.append(('groupbox', hotkey_group))
         hotkey_layout = QFormLayout()
         hotkey_layout.setSpacing(15)
         
         self.search_hotkey_input = QLineEdit()
         self.search_hotkey_input.setPlaceholderText("例如：alt+space")
-        self.search_hotkey_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
+        self.widgets_to_style.append(('lineedit', self.search_hotkey_input))
         
         hotkey_layout.addRow("唤醒搜索框快捷键：", self.search_hotkey_input)
         hotkey_group.setLayout(hotkey_layout)
@@ -469,23 +798,7 @@ class SettingsWindow(QWidget):
         # 保存按钮
         save_system_btn = QPushButton("💾 保存系统设置")
         save_system_btn.clicked.connect(self.save_system_settings)
-        save_system_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0ea5e9;
-                color: white;
-                padding: 12px 20px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #0284c7;
-            }
-            QPushButton:pressed {
-                background-color: #0369a1;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_primary', save_system_btn))
         layout.addWidget(save_system_btn)
         
         layout.addStretch()
@@ -500,16 +813,18 @@ class SettingsWindow(QWidget):
         
         title = QLabel("系统代理设置")
         title.setFont(QFont("Microsoft YaHei", 16, QFont.Weight.Bold))
+        self.widgets_to_style.append(('title', title))
         layout.addWidget(title)
         
         # 代理设置
         proxy_group = QGroupBox("代理配置")
+        self.widgets_to_style.append(('groupbox', proxy_group))
         proxy_layout = QVBoxLayout()
         proxy_layout.setSpacing(15)
         
         self.proxy_enabled_check = QCheckBox("启用代理")
         self.proxy_enabled_check.toggled.connect(self.on_proxy_enabled_changed)
-        self.proxy_enabled_check.setStyleSheet("QCheckBox { font-size: 14px; padding: 5px; }")
+        self.widgets_to_style.append(('checkbox', self.proxy_enabled_check))
         
         # 代理表单
         proxy_form = QFormLayout()
@@ -517,51 +832,23 @@ class SettingsWindow(QWidget):
         
         self.proxy_address_input = QLineEdit()
         self.proxy_address_input.setPlaceholderText("例如：127.0.0.1")
-        self.proxy_address_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
+        self.widgets_to_style.append(('lineedit', self.proxy_address_input))
         proxy_form.addRow("代理地址:", self.proxy_address_input)
         
         self.proxy_port_input = QLineEdit()
         self.proxy_port_input.setPlaceholderText("例如：7890")
-        self.proxy_port_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
+        self.widgets_to_style.append(('lineedit', self.proxy_port_input))
         proxy_form.addRow("代理端口:", self.proxy_port_input)
         
         self.proxy_username_input = QLineEdit()
         self.proxy_username_input.setPlaceholderText("可选")
-        self.proxy_username_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
+        self.widgets_to_style.append(('lineedit', self.proxy_username_input))
         proxy_form.addRow("用户名:", self.proxy_username_input)
         
         self.proxy_password_input = QLineEdit()
         self.proxy_password_input.setPlaceholderText("可选")
         self.proxy_password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.proxy_password_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
+        self.widgets_to_style.append(('lineedit', self.proxy_password_input))
         proxy_form.addRow("密码:", self.proxy_password_input)
         
         # 测试和保存按钮
@@ -570,38 +857,12 @@ class SettingsWindow(QWidget):
         
         test_proxy_btn = QPushButton("🔌 测试连通性")
         test_proxy_btn.clicked.connect(self.test_proxy_connection)
-        test_proxy_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #10b981;
-                color: white;
-                padding: 10px 20px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #059669;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_success', test_proxy_btn))
         proxy_btn_layout.addWidget(test_proxy_btn)
         
         save_proxy_btn = QPushButton("💾 保存代理配置")
         save_proxy_btn.clicked.connect(self.save_proxy_settings)
-        save_proxy_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0ea5e9;
-                color: white;
-                padding: 10px 24px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #0284c7;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_primary', save_proxy_btn))
         proxy_btn_layout.addWidget(save_proxy_btn)
         
         proxy_layout.addWidget(self.proxy_enabled_check)
@@ -622,6 +883,7 @@ class SettingsWindow(QWidget):
         
         title = QLabel("AI 模型配置")
         title.setFont(QFont("Microsoft YaHei", 16, QFont.Weight.Bold))
+        self.widgets_to_style.append(('title', title))
         layout.addWidget(title)
         
         # 滚动区域
@@ -643,16 +905,7 @@ class SettingsWindow(QWidget):
         
         # 添加模型区域
         add_group = QGroupBox("➕ 添加新模型")
-        add_group.setStyleSheet("""
-            QGroupBox {
-                border: 2px dashed #cbd5e1;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding-top: 10px;
-                font-weight: bold;
-                font-size: 14px;
-            }
-        """)
+        self.widgets_to_style.append(('groupbox', add_group))
         
         add_layout = QFormLayout()
         add_layout.setSpacing(12)
@@ -661,67 +914,31 @@ class SettingsWindow(QWidget):
         # 提供商选择
         self.provider_combo = QComboBox()
         self.provider_combo.addItems(self.providers.keys())
-        self.provider_combo.setStyleSheet("""
-            QComboBox {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-                min-height: 30px;
-            }
-        """)
+        self.widgets_to_style.append(('combobox', self.provider_combo))
         self.provider_combo.currentTextChanged.connect(self.on_provider_changed)
         add_layout.addRow("选择提供商:", self.provider_combo)
         
         # 自定义名称
         self.custom_name_input = QLineEdit()
         self.custom_name_input.setPlaceholderText("留空则使用提供商名称")
-        self.custom_name_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
+        self.widgets_to_style.append(('lineedit', self.custom_name_input))
         add_layout.addRow("自定义名称:", self.custom_name_input)
         
         # API URL
         self.new_api_url_input = QLineEdit(self.providers['OpenAI']['api_url'])
-        self.new_api_url_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
+        self.widgets_to_style.append(('lineedit', self.new_api_url_input))
         add_layout.addRow("API 地址:", self.new_api_url_input)
         
         # API Key
         self.new_api_key_input = QLineEdit()
         self.new_api_key_input.setPlaceholderText("请输入 API Key")
         self.new_api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.new_api_key_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
+        self.widgets_to_style.append(('lineedit', self.new_api_key_input))
         add_layout.addRow("API Key:", self.new_api_key_input)
         
         # Model
         self.new_model_input = QLineEdit(self.providers['OpenAI']['model'])
-        self.new_model_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
+        self.widgets_to_style.append(('lineedit', self.new_model_input))
         add_layout.addRow("模型名称:", self.new_model_input)
         
         # 添加按钮和测试按钮
@@ -730,38 +947,12 @@ class SettingsWindow(QWidget):
         
         test_new_btn = QPushButton("🔌 测试连通性")
         test_new_btn.clicked.connect(self.test_new_model)
-        test_new_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #10b981;
-                color: white;
-                padding: 10px 20px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #059669;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_success', test_new_btn))
         add_btn_layout.addWidget(test_new_btn)
         
         add_btn = QPushButton("添加模型")
         add_btn.clicked.connect(self.add_new_model)
-        add_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #8b5cf6;
-                color: white;
-                padding: 10px 24px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #7c3aed;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_primary', add_btn))
         add_btn_layout.addWidget(add_btn)
         add_layout.addRow("", add_btn_layout)
         
@@ -777,23 +968,7 @@ class SettingsWindow(QWidget):
         # 保存按钮 - 固定在窗口底部
         save_btn = QPushButton("💾 保存AI模型配置")
         save_btn.clicked.connect(self.save_ai_settings)
-        save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0ea5e9;
-                color: white;
-                padding: 12px 20px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #0284c7;
-            }
-            QPushButton:pressed {
-                background-color: #0369a1;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_primary', save_btn))
         layout.addWidget(save_btn)
         
         page.setLayout(layout)
@@ -837,7 +1012,7 @@ class SettingsWindow(QWidget):
         QMessageBox.information(self, "成功", f"已添加模型：{name}")
     
     def create_ai_model_widget(self, model_data, index):
-        collapsible = CollapsibleGroup(model_data['name'], self, index)
+        collapsible = CollapsibleGroup(model_data['name'], self, index, self.theme_manager)
         collapsible.set_enabled_status(model_data['enabled'])
         
         form_layout = QFormLayout()
@@ -845,79 +1020,28 @@ class SettingsWindow(QWidget):
         
         # API URL
         api_url_input = QLineEdit(model_data['api_url'])
-        api_url_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
         api_url_input.textChanged.connect(lambda: collapsible.update_title(api_url_input.text() if not self.custom_name_input.text() else self.custom_name_input.text()))
         form_layout.addRow("API 地址:", api_url_input)
         
         # API Key
         api_key_input = QLineEdit(model_data['api_key'])
         api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-        api_key_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
         form_layout.addRow("API Key:", api_key_input)
         
         # Model
         model_input = QLineEdit(model_data['model'])
-        model_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
         form_layout.addRow("模型名称:", model_input)
         
         # Enabled
         enabled_check = QCheckBox("启用")
         enabled_check.setChecked(model_data['enabled'])
-        enabled_check.setStyleSheet("QCheckBox { padding: 5px 0; }")
         enabled_check.toggled.connect(lambda checked: collapsible.set_enabled_status(checked))
         
         # Test button and Delete button
         test_btn = QPushButton("🔌 测试")
-        test_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #10b981;
-                color: white;
-                padding: 6px 12px;
-                border: none;
-                border-radius: 4px;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #059669;
-            }
-        """)
         test_btn.clicked.connect(lambda: self.test_api_connection(index))
         
         delete_btn = QPushButton("🗑️ 删除")
-        delete_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #ef4444;
-                color: white;
-                padding: 6px 12px;
-                border: none;
-                border-radius: 4px;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #dc2626;
-            }
-        """)
         delete_btn.clicked.connect(lambda: self.delete_model(index))
         
         btn_layout = QHBoxLayout()
@@ -928,6 +1052,14 @@ class SettingsWindow(QWidget):
         form_layout.addRow("", btn_layout)
         
         collapsible.content_layout.addLayout(form_layout)
+        
+        # 添加到样式列表
+        self.widgets_to_style.append(('lineedit', api_url_input))
+        self.widgets_to_style.append(('lineedit', api_key_input))
+        self.widgets_to_style.append(('lineedit', model_input))
+        self.widgets_to_style.append(('checkbox', enabled_check))
+        self.widgets_to_style.append(('pushbutton_success', test_btn))
+        self.widgets_to_style.append(('pushbutton_danger', delete_btn))
         
         self.ai_model_inputs.append({
             'name': model_data['name'],
@@ -1120,6 +1252,69 @@ class SettingsWindow(QWidget):
         self.theme_manager.apply_theme(theme)
         self.signal_handler.theme_changed.emit(theme)
     
+    def apply_theme(self):
+        colors = self.theme_manager.get_colors()
+        
+        # 设置窗口背景色
+        self.setStyleSheet(f"QWidget {{ background-color: {colors['window']}; }}")
+        
+        # 应用侧边栏样式
+        try:
+            self.sidebar.setStyleSheet(self.theme_manager.get_sidebar_style())
+        except RuntimeError:
+            pass
+        
+        # 应用其他控件样式
+        valid_widgets = []
+        for widget_type, widget in self.widgets_to_style:
+            try:
+                if widget_type == 'lineedit':
+                    widget.setStyleSheet(self.theme_manager.get_line_edit_style())
+                    valid_widgets.append((widget_type, widget))
+                elif widget_type == 'combobox':
+                    widget.setStyleSheet(self.theme_manager.get_combobox_style())
+                    valid_widgets.append((widget_type, widget))
+                elif widget_type == 'checkbox':
+                    widget.setStyleSheet(self.theme_manager.get_checkbox_style())
+                    valid_widgets.append((widget_type, widget))
+                elif widget_type == 'groupbox':
+                    widget.setStyleSheet(self.theme_manager.get_groupbox_style())
+                    valid_widgets.append((widget_type, widget))
+                elif widget_type == 'listwidget':
+                    widget.setStyleSheet(self.theme_manager.get_list_widget_style())
+                    valid_widgets.append((widget_type, widget))
+                elif widget_type == 'pushbutton_primary':
+                    widget.setStyleSheet(self.theme_manager.get_push_button_style('primary'))
+                    valid_widgets.append((widget_type, widget))
+                elif widget_type == 'pushbutton_success':
+                    widget.setStyleSheet(self.theme_manager.get_push_button_style('success'))
+                    valid_widgets.append((widget_type, widget))
+                elif widget_type == 'pushbutton_danger':
+                    widget.setStyleSheet(self.theme_manager.get_push_button_style('danger'))
+                    valid_widgets.append((widget_type, widget))
+                elif widget_type == 'textedit':
+                    widget.setStyleSheet(self.theme_manager.get_textedit_style())
+                    valid_widgets.append((widget_type, widget))
+                elif widget_type == 'title' or widget_type == 'label':
+                    widget.setStyleSheet(f"color: {colors['window_text']};")
+                    valid_widgets.append((widget_type, widget))
+            except RuntimeError:
+                pass
+        
+        # 更新有效的widget列表
+        self.widgets_to_style = valid_widgets
+        
+        # 更新可折叠组件样式
+        for group in self.ai_collapsible_groups:
+            try:
+                if hasattr(group, 'apply_theme'):
+                    group.apply_theme()
+            except RuntimeError:
+                pass
+    
+    def on_theme_changed_external(self, theme):
+        self.apply_theme()
+    
     def on_auto_start_changed(self, checked):
         self.auto_start_manager.set_auto_start(checked)
     
@@ -1137,6 +1332,8 @@ class SettingsWindow(QWidget):
             )
             if reply == QMessageBox.StandardButton.Yes:
                 self.auto_start_manager.run_as_admin()
+            else:
+                self.admin_check.setChecked(False)
     
     def on_proxy_enabled_changed(self, checked):
         self.proxy_address_input.setEnabled(checked)
@@ -1223,37 +1420,22 @@ class SettingsWindow(QWidget):
         
         title = QLabel("启动程序扫描")
         title.setFont(QFont("Microsoft YaHei", 16, QFont.Weight.Bold))
+        self.widgets_to_style.append(('title', title))
         layout.addWidget(title)
-        
-        # 说明
-        desc = QLabel("添加自定义目录来扫描快捷方式（.lnk）和可执行程序（.exe）：\n为了避免卡顿，最多扫描两层子目录！！！")
-        desc.setStyleSheet("color: #64748b; font-size: 14px;")
-        layout.addWidget(desc)
-        
+                        
         # 目录列表
         dir_group = QGroupBox("自定义扫描目录")
+        self.widgets_to_style.append(('groupbox', dir_group))
         dir_layout = QVBoxLayout()
         dir_layout.setSpacing(15)
+
+        # 说明
+        desc = QLabel("添加自定义目录来扫描快捷方式（.lnk）和可执行程序（.exe）：\n为了避免卡顿，最多扫描两层子目录！！！")
+        self.widgets_to_style.append(('label', desc))
+        dir_layout.addWidget(desc)
         
         self.scan_dirs_list = QListWidget()
-        self.scan_dirs_list.setStyleSheet("""
-            QListWidget {
-                border: 1px solid #e2e8f0;
-                border-radius: 8px;
-                padding: 4px;
-                background-color: white;
-                font-size: 14px;
-            }
-            QListWidget::item {
-                padding: 4px;
-                border-radius: 4px;
-                margin: 2px 0;
-            }
-            QListWidget::item:selected {
-                background-color: #dbeafe;
-                color: #1e40af;
-            }
-        """)
+        self.widgets_to_style.append(('listwidget', self.scan_dirs_list))
         dir_layout.addWidget(self.scan_dirs_list, 1)
         
         # 按钮区
@@ -1261,37 +1443,11 @@ class SettingsWindow(QWidget):
         
         add_btn = QPushButton("➕ 添加目录")
         add_btn.clicked.connect(self.add_scan_dir)
-        add_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #10b981;
-                color: white;
-                padding: 2px 20px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #059669;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_success', add_btn))
         
         delete_btn = QPushButton("🗑️ 删除选中")
         delete_btn.clicked.connect(self.delete_scan_dir)
-        delete_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #ef4444;
-                color: white;
-                padding: 2px 20px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #dc2626;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_danger', delete_btn))
         
         btn_layout.addWidget(add_btn)
         btn_layout.addWidget(delete_btn)
@@ -1303,32 +1459,16 @@ class SettingsWindow(QWidget):
         
         # 排除列表
         exclude_group = QGroupBox("自定义排除应用")
+        self.widgets_to_style.append(('groupbox', exclude_group))
         exclude_layout = QVBoxLayout()
         exclude_layout.setSpacing(15)
         
         exclude_desc = QLabel("添加应用名称关键词，包含这些关键词的应用将不会显示在搜索结果中：")
-        exclude_desc.setStyleSheet("color: #64748b; font-size: 13px;")
+        self.widgets_to_style.append(('label', exclude_desc))
         exclude_layout.addWidget(exclude_desc)
         
         self.exclude_names_list = QListWidget()
-        self.exclude_names_list.setStyleSheet("""
-            QListWidget {
-                border: 1px solid #e2e8f0;
-                border-radius: 8px;
-                padding: 4px;
-                background-color: white;
-                font-size: 14px;
-            }
-            QListWidget::item {
-                padding: 4px;
-                border-radius: 4px;
-                margin: 2px 0;
-            }
-            QListWidget::item:selected {
-                background-color: #fee2e2;
-                color: #991b1b;
-            }
-        """)
+        self.widgets_to_style.append(('listwidget', self.exclude_names_list))
         exclude_layout.addWidget(self.exclude_names_list, 1)
         
         # 排除列表按钮区
@@ -1337,49 +1477,16 @@ class SettingsWindow(QWidget):
         # 添加排除名称输入框
         self.exclude_name_input = QLineEdit()
         self.exclude_name_input.setPlaceholderText("输入要排除的应用名称关键词...")
-        self.exclude_name_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
+        self.widgets_to_style.append(('lineedit', self.exclude_name_input))
         self.exclude_name_input.returnPressed.connect(self.add_exclude_name)
         
         add_exclude_btn = QPushButton("➕ 添加排除")
         add_exclude_btn.clicked.connect(self.add_exclude_name)
-        add_exclude_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f59e0b;
-                color: white;
-                padding: 2px 20px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #d97706;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_primary', add_exclude_btn))
         
         delete_exclude_btn = QPushButton("🗑️ 删除选中")
         delete_exclude_btn.clicked.connect(self.delete_exclude_name)
-        delete_exclude_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #ef4444;
-                color: white;
-                padding: 2px 20px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #dc2626;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_danger', delete_exclude_btn))
         
         exclude_btn_layout.addWidget(self.exclude_name_input, 1)
         exclude_btn_layout.addWidget(add_exclude_btn)
@@ -1392,23 +1499,7 @@ class SettingsWindow(QWidget):
         # 保存按钮
         save_btn = QPushButton("💾 保存扫描配置")
         save_btn.clicked.connect(self.save_scan_settings)
-        save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0ea5e9;
-                color: white;
-                padding: 12px 20px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #0284c7;
-            }
-            QPushButton:pressed {
-                background-color: #0369a1;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_primary', save_btn))
         layout.addWidget(save_btn)
         
         layout.addStretch()
@@ -1496,14 +1587,16 @@ class SettingsWindow(QWidget):
         
         title = QLabel("文件搜索设置")
         title.setFont(QFont("Microsoft YaHei", 16, QFont.Weight.Bold))
+        self.widgets_to_style.append(('title', title))
         layout.addWidget(title)
         
         # 文件搜索启用开关
         enable_group = QGroupBox("文件搜索功能")
+        self.widgets_to_style.append(('groupbox', enable_group))
         enable_layout = QVBoxLayout()
         
         self.enable_file_search_check = QCheckBox("启用文件搜索（需要 Everything 软件）")
-        self.enable_file_search_check.setStyleSheet("QCheckBox { font-size: 14px; padding: 5px; }")
+        self.widgets_to_style.append(('checkbox', self.enable_file_search_check))
         enable_layout.addWidget(self.enable_file_search_check)
         
         enable_group.setLayout(enable_layout)
@@ -1511,36 +1604,18 @@ class SettingsWindow(QWidget):
         
         # Everything 配置
         everything_group = QGroupBox("Everything 配置")
+        self.widgets_to_style.append(('groupbox', everything_group))
         everything_layout = QFormLayout()
         everything_layout.setSpacing(15)
         
         # Everything 主程序路径
         self.everything_path_input = QLineEdit()
         self.everything_path_input.setPlaceholderText("Everything.exe 的路径")
-        self.everything_path_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
+        self.widgets_to_style.append(('lineedit', self.everything_path_input))
         
         browse_everything_btn = QPushButton("📁 浏览")
         browse_everything_btn.clicked.connect(self.browse_everything_path)
-        browse_everything_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #6b7280;
-                color: white;
-                padding: 8px 16px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #4b5563;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_default', browse_everything_btn))
         
         everything_path_layout = QHBoxLayout()
         everything_path_layout.addWidget(self.everything_path_input)
@@ -1549,30 +1624,11 @@ class SettingsWindow(QWidget):
         # Everything DLL 路径
         self.everything_dll_input = QLineEdit()
         self.everything_dll_input.setPlaceholderText("Everything64.dll 或 Everything32.dll 的路径")
-        self.everything_dll_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
+        self.widgets_to_style.append(('lineedit', self.everything_dll_input))
         
         browse_dll_btn = QPushButton("📁 浏览")
         browse_dll_btn.clicked.connect(self.browse_everything_dll)
-        browse_dll_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #6b7280;
-                color: white;
-                padding: 8px 16px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #4b5563;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_default', browse_dll_btn))
         
         everything_dll_layout = QHBoxLayout()
         everything_dll_layout.addWidget(self.everything_dll_input)
@@ -1581,20 +1637,7 @@ class SettingsWindow(QWidget):
         # 启动 Everything 按钮
         start_everything_btn = QPushButton("🚀 启动 Everything")
         start_everything_btn.clicked.connect(self.start_everything)
-        start_everything_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #10b981;
-                color: white;
-                padding: 8px 24px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #059669;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_success', start_everything_btn))
         
         everything_layout.addRow("Everything 主程序：", everything_path_layout)
         everything_layout.addRow("Everything DLL：", everything_dll_layout)
@@ -1605,30 +1648,17 @@ class SettingsWindow(QWidget):
         
         # 结果数量设置
         result_group = QGroupBox("搜索结果数量")
+        self.widgets_to_style.append(('groupbox', result_group))
         result_layout = QFormLayout()
         result_layout.setSpacing(15)
         
         self.max_app_results_input = QLineEdit()
         self.max_app_results_input.setPlaceholderText("应用搜索最大结果数")
-        self.max_app_results_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
+        self.widgets_to_style.append(('lineedit', self.max_app_results_input))
         
         self.max_file_results_input = QLineEdit()
         self.max_file_results_input.setPlaceholderText("文件搜索最大结果数")
-        self.max_file_results_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
+        self.widgets_to_style.append(('lineedit', self.max_file_results_input))
         
         result_layout.addRow("应用搜索最大结果数：", self.max_app_results_input)
         result_layout.addRow("文件搜索最大结果数：", self.max_file_results_input)
@@ -1639,23 +1669,7 @@ class SettingsWindow(QWidget):
         # 保存按钮
         save_btn = QPushButton("💾 保存文件搜索配置")
         save_btn.clicked.connect(self.save_file_search_settings)
-        save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0ea5e9;
-                color: white;
-                padding: 12px 20px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #0284c7;
-            }
-            QPushButton:pressed {
-                background-color: #0369a1;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_primary', save_btn))
         layout.addWidget(save_btn)
         
         layout.addStretch()
@@ -1748,15 +1762,17 @@ class SettingsWindow(QWidget):
         
         title = QLabel("剪贴板设置")
         title.setFont(QFont("Microsoft YaHei", 16, QFont.Weight.Bold))
+        self.widgets_to_style.append(('title', title))
         layout.addWidget(title)
         
         # 启用剪贴板功能
         enable_group = QGroupBox("功能设置")
+        self.widgets_to_style.append(('groupbox', enable_group))
         enable_layout = QVBoxLayout()
         enable_layout.setSpacing(15)
         
         self.clipboard_enabled_check = QCheckBox("启用剪贴板历史记录")
-        self.clipboard_enabled_check.setStyleSheet("QCheckBox { font-size: 14px; padding: 5px; }")
+        self.widgets_to_style.append(('checkbox', self.clipboard_enabled_check))
         enable_layout.addWidget(self.clipboard_enabled_check)
         
         enable_group.setLayout(enable_layout)
@@ -1764,19 +1780,13 @@ class SettingsWindow(QWidget):
         
         # 快捷键设置
         hotkey_group = QGroupBox("快捷键设置")
+        self.widgets_to_style.append(('groupbox', hotkey_group))
         hotkey_layout = QFormLayout()
         hotkey_layout.setSpacing(15)
         
         self.clipboard_hotkey_input = QLineEdit()
         self.clipboard_hotkey_input.setPlaceholderText("例如：win+v, alt+v")
-        self.clipboard_hotkey_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
+        self.widgets_to_style.append(('lineedit', self.clipboard_hotkey_input))
         
         hotkey_layout.addRow("显示剪贴板历史：", self.clipboard_hotkey_input)
         
@@ -1785,6 +1795,7 @@ class SettingsWindow(QWidget):
         
         # 历史记录数量限制
         limit_group = QGroupBox("历史记录设置")
+        self.widgets_to_style.append(('groupbox', limit_group))
         limit_layout = QFormLayout()
         limit_layout.setSpacing(15)
         
@@ -1795,15 +1806,7 @@ class SettingsWindow(QWidget):
             "500 条",
             "1000 条"
         ])
-        self.clipboard_history_limit_combo.setStyleSheet("""
-            QComboBox {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-                min-height: 30px;
-            }
-        """)
+        self.widgets_to_style.append(('combobox', self.clipboard_history_limit_combo))
         
         limit_layout.addRow("最大历史记录数：", self.clipboard_history_limit_combo)
         
@@ -1813,23 +1816,7 @@ class SettingsWindow(QWidget):
         # 保存按钮
         save_btn = QPushButton("💾 保存剪贴板设置")
         save_btn.clicked.connect(self.save_clipboard_settings)
-        save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0ea5e9;
-                color: white;
-                padding: 12px 20px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #0284c7;
-            }
-            QPushButton:pressed {
-                background-color: #0369a1;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_primary', save_btn))
         layout.addWidget(save_btn)
         
         layout.addStretch()
@@ -1878,15 +1865,17 @@ class SettingsWindow(QWidget):
         
         title = QLabel("截图设置")
         title.setFont(QFont("Microsoft YaHei", 16, QFont.Weight.Bold))
+        self.widgets_to_style.append(('title', title))
         layout.addWidget(title)
         
         # 功能启用设置
         enable_group = QGroupBox("功能启用")
+        self.widgets_to_style.append(('groupbox', enable_group))
         enable_layout = QVBoxLayout()
         enable_layout.setSpacing(15)
         
         self.screenshot_enabled_check = QCheckBox("启用截图功能")
-        self.screenshot_enabled_check.setStyleSheet("QCheckBox { font-size: 14px; padding: 5px; }")
+        self.widgets_to_style.append(('checkbox', self.screenshot_enabled_check))
         self.screenshot_enabled_check.toggled.connect(self.on_screenshot_enabled_toggled)
         
         enable_layout.addWidget(self.screenshot_enabled_check)
@@ -1895,19 +1884,13 @@ class SettingsWindow(QWidget):
         
         # 快捷键设置
         hotkey_group = QGroupBox("快捷键设置")
+        self.widgets_to_style.append(('groupbox', hotkey_group))
         hotkey_layout = QFormLayout()
         hotkey_layout.setSpacing(15)
         
         self.screenshot_hotkey_input = QLineEdit()
         self.screenshot_hotkey_input.setPlaceholderText("例如：ctrl+alt+a")
-        self.screenshot_hotkey_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
+        self.widgets_to_style.append(('lineedit', self.screenshot_hotkey_input))
         
         hotkey_layout.addRow("截图快捷键：", self.screenshot_hotkey_input)
         hotkey_group.setLayout(hotkey_layout)
@@ -1915,6 +1898,7 @@ class SettingsWindow(QWidget):
         
         # 截图后操作（下拉菜单）
         action_group = QGroupBox("截图后操作")
+        self.widgets_to_style.append(('groupbox', action_group))
         action_layout = QFormLayout()
         action_layout.setSpacing(15)
         
@@ -1924,15 +1908,7 @@ class SettingsWindow(QWidget):
             "直接复制到剪贴板", 
             "直接保存到文件"
         ])
-        self.screenshot_action_combo.setStyleSheet("""
-            QComboBox {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-                min-height: 30px;
-            }
-        """)
+        self.widgets_to_style.append(('combobox', self.screenshot_action_combo))
         self.screenshot_action_combo.currentIndexChanged.connect(self.on_screenshot_action_changed)
         
         action_layout.addRow("默认操作：", self.screenshot_action_combo)
@@ -1941,35 +1917,17 @@ class SettingsWindow(QWidget):
         
         # 保存路径和格式
         save_group = QGroupBox("保存设置")
+        self.widgets_to_style.append(('groupbox', save_group))
         save_layout = QFormLayout()
         save_layout.setSpacing(15)
         
         self.screenshot_save_path_input = QLineEdit()
         self.screenshot_save_path_input.setPlaceholderText("选择截图保存目录")
-        self.screenshot_save_path_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
+        self.widgets_to_style.append(('lineedit', self.screenshot_save_path_input))
         
         browse_save_path_btn = QPushButton("📁 浏览")
         browse_save_path_btn.clicked.connect(self.browse_screenshot_save_path)
-        browse_save_path_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #6b7280;
-                color: white;
-                padding: 8px 16px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #4b5563;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_default', browse_save_path_btn))
         
         save_path_layout = QHBoxLayout()
         save_path_layout.addWidget(self.screenshot_save_path_input)
@@ -1977,15 +1935,7 @@ class SettingsWindow(QWidget):
         
         self.screenshot_format_combo = QComboBox()
         self.screenshot_format_combo.addItems(["PNG", "JPG", "BMP"])
-        self.screenshot_format_combo.setStyleSheet("""
-            QComboBox {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-                min-height: 30px;
-            }
-        """)
+        self.widgets_to_style.append(('combobox', self.screenshot_format_combo))
         
         save_layout.addRow("保存目录：", save_path_layout)
         save_layout.addRow("保存格式：", self.screenshot_format_combo)
@@ -1994,6 +1944,7 @@ class SettingsWindow(QWidget):
         
         # OCR 模型配置（在线 API）
         ocr_group = QGroupBox("OCR 模型配置（在线 API）")
+        self.widgets_to_style.append(('groupbox', ocr_group))
         ocr_layout = QFormLayout()
         ocr_layout.setSpacing(15)
         
@@ -2001,26 +1952,12 @@ class SettingsWindow(QWidget):
         self.ocr_api_token_input = QLineEdit()
         self.ocr_api_token_input.setPlaceholderText("请输入 PaddleOCR API Token")
         self.ocr_api_token_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.ocr_api_token_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
+        self.widgets_to_style.append(('lineedit', self.ocr_api_token_input))
         
         # API URL
         self.ocr_api_url_input = QLineEdit()
         self.ocr_api_url_input.setPlaceholderText("请输入 PaddleOCR API URL，留空使用默认")
-        self.ocr_api_url_input.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-            }
-        """)
+        self.widgets_to_style.append(('lineedit', self.ocr_api_url_input))
         
         # 模型选择
         self.ocr_model_combo = QComboBox()
@@ -2029,18 +1966,10 @@ class SettingsWindow(QWidget):
             "PaddleOCR-VL-1.5",
             "PaddleOCR-VL"
         ])
-        self.ocr_model_combo.setStyleSheet("""
-            QComboBox {
-                padding: 8px 12px;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                background-color: white;
-                min-height: 30px;
-            }
-        """)
+        self.widgets_to_style.append(('combobox', self.ocr_model_combo))
         
         ocr_desc = QLabel("使用 PaddleOCR 在线 API 进行文字识别，请配置 API Token：")
-        ocr_desc.setStyleSheet("color: #64748b; font-size: 13px; margin-bottom: 5px;")
+        self.widgets_to_style.append(('label', ocr_desc))
         ocr_layout.addRow(ocr_desc)
         ocr_layout.addRow("API Token：", self.ocr_api_token_input)
         ocr_layout.addRow("API URL：", self.ocr_api_url_input)
@@ -2052,23 +1981,7 @@ class SettingsWindow(QWidget):
         # 保存按钮
         save_btn = QPushButton("💾 保存截图设置")
         save_btn.clicked.connect(self.save_screenshot_settings)
-        save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0ea5e9;
-                color: white;
-                padding: 12px 20px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #0284c7;
-            }
-            QPushButton:pressed {
-                background-color: #0369a1;
-            }
-        """)
+        self.widgets_to_style.append(('pushbutton_primary', save_btn))
         layout.addWidget(save_btn)
         
         layout.addStretch()
