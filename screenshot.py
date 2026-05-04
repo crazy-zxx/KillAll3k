@@ -1935,7 +1935,7 @@ class ScreenshotManager:
     def do_ocr(self, image, editor=None):
         """OCR识别"""
         # 创建OCR结果窗口，设置为模态对话框
-        self.ocr_window = OCRResultWindow(image, self.ocr_engine, self.theme_manager, parent=editor)
+        self.ocr_window = OCRResultWindow(image, self.ocr_engine, self.settings_manager, self.theme_manager, parent=editor)
         self.ocr_window.setWindowModality(Qt.WindowModality.WindowModal)
         self.ocr_window.show()
 
@@ -1972,12 +1972,12 @@ class OCRWorker(QThread):
 class OCRResultWindow(QMainWindow):
     """OCR结果显示窗口"""
 
-    def __init__(self, image, ocr_engine, theme_manager=None, parent=None):
+    def __init__(self, image, ocr_engine, settings_manager=None,theme_manager=None, parent=None):
         super().__init__(parent)
         self.image = image
         self.ocr_engine = ocr_engine
         self.theme_manager = theme_manager
-        self.result_text = ""
+        self.settings_manager = settings_manager
         self.ocr_worker = None
         self.init_ui()
         self.apply_theme()
@@ -2085,13 +2085,15 @@ class OCRResultWindow(QMainWindow):
 
     def on_ocr_finished(self, result):
         """OCR 完成回调"""
-        self.result_text = result
-        # 尝试使用 Markdown 渲染
-        try:
-            self.text_edit.setMarkdown(result)
-        except:
-            # 如果 Markdown 渲染失败，回退到纯文本
+        self.result_text = result     
+        model = self.settings_manager.get('ocr_model', 'pp-ocrv5') 
+        if model == 'pp-ocrv5':
+            # 纯文本
             self.text_edit.setText(result)
+        else:
+            # 尝试使用 Markdown 渲染
+            self.text_edit.setMarkdown(result)
+                        
         self.set_buttons_enabled(True)
 
         # 清理线程
@@ -2792,7 +2794,7 @@ class OCREngine:
 
         try:
             # 1. 提交任务
-            job_response = requests.post(api_url, headers=headers, data=data, files=files, timeout=30)
+            job_response = requests.post(api_url, headers=headers, data=data, files=files)
 
             if job_response.status_code != 200:
                 return f"API请求失败: {job_response.status_code} - {job_response.text}"
@@ -2803,7 +2805,7 @@ class OCREngine:
             # 2. 轮询任务状态
             jsonl_url = ""
             while True:
-                job_result_response = requests.get(f"{api_url}/{job_id}", headers=headers, timeout=30)
+                job_result_response = requests.get(f"{api_url}/{job_id}", headers=headers)
                 if job_result_response.status_code != 200:
                     return f"获取任务状态失败: {job_result_response.status_code}"
 
@@ -2824,7 +2826,7 @@ class OCREngine:
                     return f"任务失败: {error_msg}"
 
             # 3. 获取结果
-            jsonl_response = requests.get(jsonl_url, timeout=30)
+            jsonl_response = requests.get(jsonl_url)
             jsonl_response.raise_for_status()
 
             # 解析JSONL
@@ -2836,7 +2838,7 @@ class OCREngine:
                 if not line:
                     continue
                 result = json.loads(line)["result"]
-
+                
                 if model == 'PP-OCRv5':
                     # PP-OCRv5 使用 ocrResults
                     if "ocrResults" in result:
@@ -2886,9 +2888,9 @@ class OCREngine:
         w = image.width()
         stride = image.bytesPerLine()
 
-        # 🚀 唯一 100% 安全的取数据方式（解决 size=1 所有报错）
+        # 安全的取数据方式（解决 size=1 所有报错）
         ptr = image.bits()
-        ptr.setsize(sys.maxsize)  # 关键！强制解锁内存限制
+        ptr.setsize(sys.maxsize)  # 解锁内存限制
 
         # 构造数组
         arr = np.ndarray((h, stride // 3, 3), np.uint8, buffer=ptr)
