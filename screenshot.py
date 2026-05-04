@@ -1837,7 +1837,7 @@ class ScreenshotManager:
         self.settings_manager = settings_manager
         self.theme_manager = theme_manager
         self.screenshot_window = None
-        self.annotation_editor = None
+        self.annotation_editors = []  # 改为列表，支持多个编辑窗口
         self.sticker_windows = []
         self.ocr_engine = OCREngine(settings_manager)
         self.ocr_window = None
@@ -1869,21 +1869,53 @@ class ScreenshotManager:
 
     def show_annotation_editor(self, image):
         """显示标注编辑器"""
-        self.annotation_editor = AnnotationEditor(image, self.theme_manager)
-        self.annotation_editor.save_clicked.connect(self.save_image)
-        self.annotation_editor.copy_clicked.connect(self.copy_to_clipboard)
-        self.annotation_editor.ocr_clicked.connect(self.do_ocr)
-        self.annotation_editor.ai_clicked.connect(self.do_ai)
-        self.annotation_editor.sticker_clicked.connect(self.create_sticker)
-        self.annotation_editor.show()
+        editor = AnnotationEditor(image, self.theme_manager)
+        
+        # 为每个编辑器创建独立的回调
+        def on_save(img):
+            self.save_image(img, editor)
+        
+        def on_copy(img):
+            self.copy_to_clipboard(img)
+            self._remove_editor(editor)
+            editor.close()
+        
+        def on_ocr(img):
+            self.do_ocr(img, editor)
+        
+        def on_ai(img):
+            self.do_ai(img, editor)
+        
+        def on_sticker(img):
+            self.create_sticker(img)
+            self._remove_editor(editor)
+            editor.close()
+        
+        def on_closed():
+            self._remove_editor(editor)
+        
+        editor.save_clicked.connect(on_save)
+        editor.copy_clicked.connect(on_copy)
+        editor.ocr_clicked.connect(on_ocr)
+        editor.ai_clicked.connect(on_ai)
+        editor.sticker_clicked.connect(on_sticker)
+        editor.closed.connect(on_closed)
+        
+        self.annotation_editors.append(editor)
+        editor.show()
+    
+    def _remove_editor(self, editor):
+        """从列表中移除编辑器"""
+        if editor in self.annotation_editors:
+            self.annotation_editors.remove(editor)
 
     def copy_to_clipboard(self, image):
         """复制到剪贴板"""
         clipboard = QApplication.clipboard()
         clipboard.setImage(image)
 
-    def save_image(self, image):
-        """保存图像 - 静默保存到默认位置，然后关闭编辑窗口"""
+    def save_image(self, image, editor=None):
+        """保存图像 - 静默保存到默认位置，然后关闭对应的编辑窗口"""
         save_path = self.settings_manager.get('screenshot_save_path', '')
         if not save_path or not os.path.exists(save_path):
             save_path = os.path.expanduser('~')
@@ -1891,26 +1923,26 @@ class ScreenshotManager:
         file_path = os.path.join(save_path, f"screenshot_{self.get_timestamp()}.png")
         image.save(file_path)
 
-        # 保存完成后关闭编辑窗口
-        if hasattr(self, 'annotation_editor') and self.annotation_editor:
-            self.annotation_editor.close()
-            self.annotation_editor = None
+        # 保存完成后关闭对应的编辑窗口
+        if editor:
+            self._remove_editor(editor)
+            editor.close()
 
     def get_timestamp(self):
         """获取时间戳"""
         return datetime.now().strftime('%Y%m%d_%H%M%S')
 
-    def do_ocr(self, image):
+    def do_ocr(self, image, editor=None):
         """OCR识别"""
         # 创建OCR结果窗口，设置为模态对话框
-        self.ocr_window = OCRResultWindow(image, self.ocr_engine, self.theme_manager, parent=self.annotation_editor)
+        self.ocr_window = OCRResultWindow(image, self.ocr_engine, self.theme_manager, parent=editor)
         self.ocr_window.setWindowModality(Qt.WindowModality.WindowModal)
         self.ocr_window.show()
 
-    def do_ai(self, image):
+    def do_ai(self, image, editor=None):
         """问AI"""
         # 创建AI对话框，设置为模态对话框
-        self.ai_window = AIDialog(image, self.settings_manager, self.theme_manager, parent=self.annotation_editor)
+        self.ai_window = AIDialog(image, self.settings_manager, self.theme_manager, parent=editor)
         self.ai_window.setWindowModality(Qt.WindowModality.WindowModal)
         self.ai_window.show()
 

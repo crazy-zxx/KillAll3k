@@ -1,8 +1,8 @@
 {
   "theme": "auto",
   "auto_start": false,
-  "show_notification": false,
-  "run_as_admin": false,
+  "show_notification": true,
+  "run_as_admin": true,
   "ai_models": [],
   "proxy_enabled": false,
   "proxy_address": "",
@@ -23,9 +23,9 @@
   "screenshot_enabled": true,
   "screenshot_hotkey": "ctrl+alt+a",
   "screenshot_action": "annotate",
-  "screenshot_save_path": "",
+  "screenshot_save_path": "C:/Users/zhao/Pictures/Screenshots",
   "screenshot_format": "png",
   "ocr_api_token": "",
   "ocr_api_url": "",
-  "ocr_model": "paddleocr-vl-1.5"
+  "ocr_model": "pp-ocrv5"
 }

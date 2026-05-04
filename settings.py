@@ -30,35 +30,14 @@ class SignalHandler(QObject):
 
 
 class SettingsManager:
-    @staticmethod
-    def get_default_screenshot_path():
-        """获取当前用户的默认截图保存目录"""
-        try:
-            # 获取用户主目录
-            user_profile = os.environ.get('USERPROFILE')
-            if user_profile:
-                # 尝试常见的截图保存路径
-                screenshots_path = os.path.join(user_profile, 'Pictures', 'Screenshots')
-                if os.path.exists(screenshots_path):
-                    return screenshots_path
-                # 如果不存在，尝试 Pictures 目录
-                pictures_path = os.path.join(user_profile, 'Pictures')
-                if os.path.exists(pictures_path):
-                    return pictures_path
-                # 否则返回用户主目录
-                return user_profile
-        except Exception:
-            pass
-        # 如果获取失败，返回一个合理的默认路径
-        return 'C:\\Users\\Public\\Pictures'
     
     def __init__(self):
         self.settings_file = self.resource_path('settings.json')
         self.default_settings = {
             'theme': 'auto',
             'auto_start': False,
-            'show_notification': False,
-            'run_as_admin': False,
+            'show_notification': True,
+            'run_as_admin': True,
             'ai_models': [],
             'proxy_enabled': False,
             'proxy_address': '',
@@ -85,7 +64,28 @@ class SettingsManager:
             'ocr_api_url': '',
             'ocr_model': 'pp-ocrv5'
         }
-        self.settings = self.load_settings()
+        self.settings = self.load_settings()        
+
+    def get_default_screenshot_path(self):
+        """获取当前用户的默认截图保存目录"""
+        try:
+            # 获取用户主目录
+            user_profile = os.environ.get('USERPROFILE')
+            if user_profile:
+                # 尝试常见的截图保存路径
+                screenshots_path = os.path.join(user_profile, 'Pictures', 'Screenshots')
+                if os.path.exists(screenshots_path):
+                    return screenshots_path.replace('\\', '/')
+                # 如果不存在，尝试 Pictures 目录
+                pictures_path = os.path.join(user_profile, 'Pictures')
+                if os.path.exists(pictures_path):
+                    return pictures_path.replace('\\', '/')
+                # 否则返回用户主目录
+                return user_profile.replace('\\', '/')
+        except Exception:
+            pass
+        # 如果获取失败，返回一个合理的默认路径
+        return 'C:/Users/Public/Pictures'
 
     def resource_path(self, relative_path):
         """获取打包后资源文件的绝对路径"""
@@ -96,18 +96,21 @@ class SettingsManager:
             # 开发环境，直接使用当前路径
             base_path = os.path.abspath(".")
         return os.path.join(base_path, relative_path)
-
+    
     def load_settings(self):
         if os.path.exists(self.settings_file):
             try:
                 with open(self.settings_file, 'r', encoding='utf-8') as f:
                     return {**self.default_settings, **json.load(f)}
             except:
-                return self.default_settings.copy()
+                pass        
+        self.save_settings(self.default_settings.copy())
         return self.default_settings.copy()
     
-    def save_settings(self):
+    def save_settings(self, settings=None):
         with open(self.settings_file, 'w', encoding='utf-8') as f:
+            if settings:
+                self.settings = settings
             json.dump(self.settings, f, ensure_ascii=False, indent=2)
     
     def get(self, key, default=None):
@@ -2047,8 +2050,6 @@ class SettingsWindow(QWidget):
         
         # 获取保存路径，如果为空则使用默认值
         save_path = self.settings_manager.get('screenshot_save_path', '')
-        if not save_path:
-            save_path = SettingsManager.get_default_screenshot_path()
         self.screenshot_save_path_input.setText(save_path)
         
         format_map = {'png': 0, 'jpg': 1, 'bmp': 2}
@@ -2082,8 +2083,6 @@ class SettingsWindow(QWidget):
         
         # 确保保存路径不为空
         save_path = self.screenshot_save_path_input.text().strip()
-        if not save_path:
-            save_path = SettingsManager.get_default_screenshot_path()
         self.settings_manager.set('screenshot_save_path', save_path)
         
         formats = ['png', 'jpg', 'bmp']
