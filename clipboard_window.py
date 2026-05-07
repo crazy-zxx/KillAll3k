@@ -1096,6 +1096,10 @@ class ClipboardWindow(QWidget):
         # 保存当前窗口位置
         current_geometry = self.geometry()
         self.is_pinned = self.pin_btn.isChecked()
+        if self.is_pinned:
+            self.pin_btn.setText("📍")  # 置顶状态（红色图钉）
+        else:
+            self.pin_btn.setText("📌")  # 置顶状态（红色图钉）
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint |
             Qt.WindowType.WindowStaysOnTopHint |
