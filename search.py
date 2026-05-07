@@ -1,5 +1,8 @@
 import os
 import sys
+import winreg
+import subprocess
+import time
 
 import keyboard
 from PyQt6.QtCore import QFileInfo, QSize
@@ -619,19 +622,79 @@ class SearchWindow(QWidget):
             except Exception as e:
                 print(f"Failed to add search hotkey: {e}")
     
+    def restart_explorer(self):
+        """重启 Windows 资源管理器"""
+        try:
+            subprocess.run(['taskkill', '/f', '/im', 'explorer.exe'], 
+                         check=False, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            time.sleep(0.5)
+            subprocess.Popen(['explorer.exe'], creationflags=subprocess.CREATE_NO_WINDOW)
+            print("✓ Windows 资源管理器已重启。")
+        except Exception as e:
+            print(f"✗ 重启 Windows 资源管理器失败: {e}")
+    
+    def disable_win_v_hotkey(self, restart_explorer=True):
+        """通过注册表禁用系统级 Win + V 快捷键"""
+        try:
+            key_path = r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path)
+            winreg.SetValueEx(key, "DisabledHotkeys", 0, winreg.REG_SZ, "V")
+            winreg.CloseKey(key)
+            print("✓ 成功！已向注册表写入禁用 Win+V 的配置。")
+            
+            if restart_explorer:
+                self.restart_explorer()
+            else:
+                print("请重启『Windows 资源管理器』以使改动生效。")
+            return True
+        except Exception as e:
+            print(f"✗ 注册表修改失败: {e}")
+            return False
+    
+    def enable_win_v_hotkey(self, restart_explorer=True):
+        """通过注册表启用系统级 Win + V 快捷键（移除禁用配置）"""
+        try:
+            key_path = r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE)
+            winreg.DeleteValue(key, "DisabledHotkeys")
+            winreg.CloseKey(key)
+            print("✓ 成功！已从注册表移除禁用 Win+V 的配置。")
+            
+            if restart_explorer:
+                self.restart_explorer()
+            else:
+                print("请重启『Windows 资源管理器』以使改动生效。")
+            return True
+        except FileNotFoundError:
+            print("- 注册表中不存在 DisabledHotkeys 配置，无需移除。")
+            return True
+        except Exception as e:
+            print(f"✗ 注册表修改失败: {e}")
+            return False
+    
     def update_clipboard_hotkey(self):
         """动态更新剪贴板热键状态"""
         # 先注销旧的热键
-        if self.current_clipboard_hotkey:
+        old_hotkey = self.current_clipboard_hotkey
+        need_restart = False
+        
+        if old_hotkey:
             try:
-                keyboard.remove_hotkey(self.current_clipboard_hotkey)
+                keyboard.remove_hotkey(old_hotkey)
             except Exception as e:
                 print(f"Failed to remove old clipboard hotkey: {e}")
             self.current_clipboard_hotkey = None
+            
+            # 如果旧热键是 win+v，恢复系统热键（暂不重启）
+            if old_hotkey.lower() in ('win+v', 'windows+v'):
+                self.enable_win_v_hotkey(restart_explorer=False)
+                need_restart = True
         
         # 检查剪贴板是否启用
         clipboard_enabled = self.settings_manager.get('clipboard_enabled', True)
         if not clipboard_enabled:
+            if need_restart:
+                self.restart_explorer()
             return
         
         # 注册新的热键
@@ -640,6 +703,12 @@ class SearchWindow(QWidget):
             try:
                 keyboard.add_hotkey(clipboard_hotkey, lambda: self.signal_handler.show_clipboard.emit(), suppress=True)
                 self.current_clipboard_hotkey = clipboard_hotkey
+                
+                # 如果新热键是 win+v，禁用系统热键
+                if clipboard_hotkey.lower() in ('win+v', 'windows+v'):
+                    self.disable_win_v_hotkey(restart_explorer=not need_restart)
+                elif need_restart:
+                    self.restart_explorer()
             except Exception as e:
                 print(f"Failed to add clipboard hotkey: {e}")
     
@@ -685,6 +754,11 @@ class SearchWindow(QWidget):
         self.signal_handler.quit_app.emit()
     
     def safe_quit(self):
+        # 如果当前使用 win+v 热键，退出前恢复系统热键（重启 Explorer）
+        # if self.current_clipboard_hotkey and self.current_clipboard_hotkey.lower() in ('win+v', 'windows+v'):
+        #     self.enable_win_v_hotkey(restart_explorer=False)
+        #     print("- 系统热键配置已恢复，重启 Explorer 后后将完全生效。")
+        
         if self.tray_icon:
             self.tray_icon.hide()
         QTimer.singleShot(100, QApplication.quit)
