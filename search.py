@@ -622,6 +622,20 @@ class SearchWindow(QWidget):
             except Exception as e:
                 print(f"Failed to add search hotkey: {e}")
     
+    def check_win_v_disabled(self):
+        """检查注册表中 Win+V 是否已被禁用"""
+        try:
+            key_path = r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_READ)
+            value, _ = winreg.QueryValueEx(key, "DisabledHotkeys")
+            winreg.CloseKey(key)
+            return value == "V"
+        except FileNotFoundError:
+            return False
+        except Exception as e:
+            print(f"✗ 检查注册表失败: {e}")
+            return False
+    
     def restart_explorer(self):
         """重启 Windows 资源管理器"""
         try:
@@ -674,10 +688,24 @@ class SearchWindow(QWidget):
     
     def update_clipboard_hotkey(self):
         """动态更新剪贴板热键状态"""
-        # 先注销旧的热键
         old_hotkey = self.current_clipboard_hotkey
-        need_restart = False
+        clipboard_hotkey = self.settings_manager.get('clipboard_hotkey', 'win+v')
+        clipboard_enabled = self.settings_manager.get('clipboard_enabled', True)
         
+        # 检查是否是 win+v 热键
+        is_old_win_v = old_hotkey and old_hotkey.lower() in ('win+v', 'windows+v')
+        is_new_win_v = clipboard_hotkey and clipboard_hotkey.lower() in ('win+v', 'windows+v')
+        
+        # 检查注册表当前状态
+        win_v_disabled = self.check_win_v_disabled()
+        
+        # 如果新旧热键相同且都是 win+v，且注册表已经是正确状态，只更新热键即可
+        if old_hotkey == clipboard_hotkey and is_old_win_v and is_new_win_v and win_v_disabled and clipboard_enabled:
+            print("- 热键未变化，注册表状态正确，无需更新。")
+            return
+        
+        # 先注销旧的热键
+        need_restart = False
         if old_hotkey:
             try:
                 keyboard.remove_hotkey(old_hotkey)
@@ -685,30 +713,30 @@ class SearchWindow(QWidget):
                 print(f"Failed to remove old clipboard hotkey: {e}")
             self.current_clipboard_hotkey = None
             
-            # 如果旧热键是 win+v，恢复系统热键（暂不重启）
-            if old_hotkey.lower() in ('win+v', 'windows+v'):
+            # 如果旧热键是 win+v，但新热键不是，恢复系统热键
+            if is_old_win_v and not is_new_win_v:
                 self.enable_win_v_hotkey(restart_explorer=False)
                 need_restart = True
         
         # 检查剪贴板是否启用
-        clipboard_enabled = self.settings_manager.get('clipboard_enabled', True)
         if not clipboard_enabled:
             if need_restart:
                 self.restart_explorer()
             return
         
         # 注册新的热键
-        clipboard_hotkey = self.settings_manager.get('clipboard_hotkey', 'win+v')
         if clipboard_hotkey:
             try:
                 keyboard.add_hotkey(clipboard_hotkey, lambda: self.signal_handler.show_clipboard.emit(), suppress=True)
                 self.current_clipboard_hotkey = clipboard_hotkey
                 
-                # 如果新热键是 win+v，禁用系统热键
-                if clipboard_hotkey.lower() in ('win+v', 'windows+v'):
+                # 如果新热键是 win+v，且注册表尚未禁用，则禁用系统热键
+                if is_new_win_v and not win_v_disabled:
                     self.disable_win_v_hotkey(restart_explorer=not need_restart)
                 elif need_restart:
                     self.restart_explorer()
+                elif is_new_win_v and win_v_disabled:
+                    print("- 注册表中 Win+V 已被禁用，无需重复操作。")
             except Exception as e:
                 print(f"Failed to add clipboard hotkey: {e}")
     
