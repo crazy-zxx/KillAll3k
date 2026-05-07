@@ -755,9 +755,9 @@ class SearchWindow(QWidget):
     
     def safe_quit(self):
         # 如果当前使用 win+v 热键，退出前恢复系统热键（重启 Explorer）
-        if self.current_clipboard_hotkey and self.current_clipboard_hotkey.lower() in ('win+v', 'windows+v'):
-            self.enable_win_v_hotkey(restart_explorer=False)
-            print("- 系统热键配置已恢复，重启 Explorer 后后将完全生效。")
+        # if self.current_clipboard_hotkey and self.current_clipboard_hotkey.lower() in ('win+v', 'windows+v'):
+        #     self.enable_win_v_hotkey(restart_explorer=False)
+        #     print("- 系统热键配置已恢复，重启 Explorer 后后将完全生效。")
         
         if self.tray_icon:
             self.tray_icon.hide()
