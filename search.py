@@ -22,7 +22,6 @@ from settings import (
     SignalHandler, SettingsManager, ThemeManager, AutoStartManager, SettingsWindow
 )
 
-# 将快捷键绑定的实现从keyboard库替换为pynput库实现，避免全局快捷键拦截导致系统按键功能失效问题。
 
 class SearchWindow(QWidget):
     def __init__(self):
