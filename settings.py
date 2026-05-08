@@ -53,10 +53,10 @@ class SettingsManager:
             'everything_dll_path': '',
             'clipboard_enabled': True,
             'clipboard_history_limit': 0,
-            'clipboard_hotkey': 'win+v',
+            'clipboard_hotkey': 'alt+v',
             'search_hotkey': 'alt+space',
             'screenshot_enabled': True,
-            'screenshot_hotkey': 'ctrl+alt+a',
+            'screenshot_hotkey': 'alt+s',
             'screenshot_action': 'annotate',
             'screenshot_save_path': self.get_default_screenshot_path(),
             'screenshot_format': 'png',
@@ -1834,7 +1834,7 @@ class SettingsWindow(QWidget):
         hotkey_layout.setSpacing(15)
         
         self.clipboard_hotkey_input = QLineEdit()
-        self.clipboard_hotkey_input.setPlaceholderText("例如：win+v, alt+v")
+        self.clipboard_hotkey_input.setPlaceholderText("例如：alt+v, alt+v")
         self.widgets_to_style.append(('lineedit', self.clipboard_hotkey_input))
         
         hotkey_layout.addRow("显示剪贴板历史：", self.clipboard_hotkey_input)
@@ -1874,7 +1874,7 @@ class SettingsWindow(QWidget):
     
     def load_clipboard_settings(self):
         self.clipboard_enabled_check.setChecked(self.settings_manager.get('clipboard_enabled', True))
-        self.clipboard_hotkey_input.setText(self.settings_manager.get('clipboard_hotkey', 'win+v'))
+        self.clipboard_hotkey_input.setText(self.settings_manager.get('clipboard_hotkey', 'alt+v'))
         
         limit = self.settings_manager.get('clipboard_history_limit', 0)
         if limit == 0:
@@ -1938,7 +1938,7 @@ class SettingsWindow(QWidget):
         hotkey_layout.setSpacing(15)
         
         self.screenshot_hotkey_input = QLineEdit()
-        self.screenshot_hotkey_input.setPlaceholderText("例如：ctrl+alt+a")
+        self.screenshot_hotkey_input.setPlaceholderText("例如：alt+s")
         self.widgets_to_style.append(('lineedit', self.screenshot_hotkey_input))
         
         hotkey_layout.addRow("截图快捷键：", self.screenshot_hotkey_input)
@@ -2077,7 +2077,7 @@ class SettingsWindow(QWidget):
     
     def load_screenshot_settings(self):
         self.screenshot_enabled_check.setChecked(self.settings_manager.get('screenshot_enabled', True))
-        self.screenshot_hotkey_input.setText(self.settings_manager.get('screenshot_hotkey', 'ctrl+alt+a'))
+        self.screenshot_hotkey_input.setText(self.settings_manager.get('screenshot_hotkey', 'alt+s'))
         
         action_map = {'annotate': 0, 'clipboard': 1, 'save': 2}
         action = self.settings_manager.get('screenshot_action', 'annotate')
@@ -2104,10 +2104,10 @@ class SettingsWindow(QWidget):
         self.on_screenshot_enabled_toggled(self.screenshot_enabled_check.isChecked())
     
     def save_screenshot_settings(self):
-        old_hotkey = self.settings_manager.get('screenshot_hotkey', 'ctrl+alt+a')
+        old_hotkey = self.settings_manager.get('screenshot_hotkey', 'alt+s')
         new_hotkey = self.screenshot_hotkey_input.text().strip()
         if not new_hotkey:
-            new_hotkey = 'ctrl+alt+a'
+            new_hotkey = 'alt+s'
         
         self.settings_manager.set('screenshot_enabled', self.screenshot_enabled_check.isChecked())
         self.settings_manager.set('screenshot_hotkey', new_hotkey)
