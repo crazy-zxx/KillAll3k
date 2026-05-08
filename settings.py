@@ -516,7 +516,7 @@ class ThemeManager:
 class AutoStartManager:
     def __init__(self):
         self.app_name = "KillAll3k (要你命三千)"
-        self.registry_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+        self.task_name = "KillAll3k_AutoStart"
     
     def is_admin(self):
         try:
@@ -526,10 +526,13 @@ class AutoStartManager:
     
     def get_auto_start(self):
         try:
-            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, self.registry_path, 0, winreg.KEY_READ)
-            winreg.QueryValueEx(key, self.app_name)
-            winreg.CloseKey(key)
-            return True
+            result = subprocess.run(
+                ['schtasks', '/query', '/tn', self.task_name],
+                capture_output=True,
+                text=True,
+                shell=True
+            )
+            return result.returncode == 0
         except:
             return False
     
@@ -544,23 +547,55 @@ class AutoStartManager:
     
     def set_auto_start(self, enable):
         try:
-
-            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, self.registry_path, 0, winreg.KEY_WRITE)
             if enable:
                 exe_path = self.get_executable_path()
+                
+                # 先删除已存在的任务
+                self._delete_task()
+                
+                # 构建任务执行的命令
                 if exe_path.endswith('.py'):
                     python_path = sys.executable
-                    winreg.SetValueEx(key, self.app_name, 0, winreg.REG_SZ, f'"{python_path}" "{exe_path}"')
+                    task_command = f'"{python_path}" "{exe_path}"'
                 else:
-                    winreg.SetValueEx(key, self.app_name, 0, winreg.REG_SZ, f'"{exe_path}"')
+                    task_command = f'"{exe_path}"'
+                
+                # 使用完整的命令字符串，确保参数正确
+                cmd_str = f'schtasks /create /tn "{self.task_name}" /f /sc onlogon /rl highest /tr "{task_command}"'
+                
+                # 执行创建命令
+                result = subprocess.run(
+                    cmd_str,
+                    capture_output=True,
+                    text=True,
+                    shell=True
+                )
+                
+                if result.returncode != 0:
+                    print(f"创建任务失败: {result.stderr}")
+                    print(f"完整命令: {cmd_str}")
+                else:
+                    print("任务计划创建成功")
             else:
-                try:
-                    winreg.DeleteValue(key, self.app_name)
-                except:
-                    pass
-            winreg.CloseKey(key)
+                self._delete_task()
         except Exception as e:
             print(f"设置开机自启动失败: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _delete_task(self):
+        """删除任务计划"""
+        try:
+            result = subprocess.run(
+                ['schtasks', '/delete', '/tn', self.task_name, '/f'],
+                capture_output=True,
+                text=True,
+                shell=True
+            )
+            if result.returncode == 0:
+                print("任务计划删除成功")
+        except Exception as e:
+            print(f"删除任务失败: {e}")
     
     def run_as_admin(self):
         """以管理员权限重新启动程序"""
