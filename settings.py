@@ -125,10 +125,33 @@ class ThemeManager:
     def __init__(self, signal_handler):
         self.signal_handler = signal_handler
         self.current_theme = 'auto'
+        self.last_system_theme = self.is_system_dark()
+        self.timer = None
+        self._setup_system_theme_monitor()
+    
+    def _setup_system_theme_monitor(self):
+        """设置系统主题变化监控器"""
+        from PyQt6.QtCore import QTimer
+        self.timer = QTimer()
+        self.timer.timeout.connect(self._check_system_theme_change)
+        self.timer.start(1000)  # 每秒检查一次
+    
+    def _check_system_theme_change(self):
+        """检查系统主题是否发生变化"""
+        if self.current_theme != 'auto':
+            return
+        
+        current_system_theme = self.is_system_dark()
+        if current_system_theme != self.last_system_theme:
+            self.last_system_theme = current_system_theme
+            # 发出主题变化信号
+            if self.signal_handler:
+                self.signal_handler.theme_changed.emit(self.current_theme)
+            # 重新应用主题
+            self.apply_theme(self.current_theme)
     
     def is_system_dark(self):
         try:
-
             registry = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
             key = winreg.OpenKey(registry, r'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize')
             value, _ = winreg.QueryValueEx(key, 'AppsUseLightTheme')

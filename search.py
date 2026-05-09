@@ -44,7 +44,7 @@ class SearchWindow(QWidget):
         self.clipboard_manager = ClipboardManager(self.settings_manager)
         # 创建截图管理器
 
-        self.screenshot_manager = ScreenshotManager(self.settings_manager, self.theme_manager)
+        self.screenshot_manager = ScreenshotManager(self.settings_manager, self.theme_manager, self.signal_handler)
         # 用于跟踪当前注册的热键
         self.current_search_hotkey = None
         self.current_clipboard_hotkey = None

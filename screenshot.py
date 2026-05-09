@@ -884,7 +884,7 @@ class AnnotationEditor(QMainWindow):
     sticker_clicked = pyqtSignal(QImage)
     closed = pyqtSignal()
 
-    def __init__(self, image, theme_manager=None):
+    def __init__(self, image, theme_manager=None, signal_handler=None):
         super().__init__()
         self.original_image = image
         self.current_image = QImage(image)
@@ -897,6 +897,13 @@ class AnnotationEditor(QMainWindow):
         self.number_counter = 1
         self.dpi_scale = self.get_dpi_scale()
         self.theme_manager = theme_manager
+        self.signal_handler = signal_handler
+        self.ocr_window = None
+        self.ai_window = None
+        
+        # 连接主题变化信号
+        if self.signal_handler:
+            self.signal_handler.theme_changed.connect(self.on_theme_changed)
 
         self.setWindowTitle("截图编辑")
         self.setWindowFlags(
@@ -1032,6 +1039,24 @@ class AnnotationEditor(QMainWindow):
         scroll_area.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setCentralWidget(scroll_area)
 
+    def on_theme_changed(self, theme):
+        """主题变化时更新窗口和子窗口"""
+        self.apply_theme()
+        
+        # 更新OCR窗口
+        if self.ocr_window and hasattr(self.ocr_window, 'apply_theme'):
+            try:
+                self.ocr_window.apply_theme()
+            except RuntimeError:
+                pass
+        
+        # 更新AI窗口
+        if self.ai_window and hasattr(self.ai_window, 'apply_theme'):
+            try:
+                self.ai_window.apply_theme()
+            except RuntimeError:
+                pass
+    
     def apply_theme(self):
         """应用主题"""
         if not self.theme_manager:
@@ -1833,14 +1858,19 @@ class StickerWindow(QWidget):
 class ScreenshotManager:
     """截图管理器"""
 
-    def __init__(self, settings_manager, theme_manager=None):
+    def __init__(self, settings_manager, theme_manager=None, signal_handler=None):
         self.settings_manager = settings_manager
         self.theme_manager = theme_manager
+        self.signal_handler = signal_handler
         self.screenshot_window = None
         self.annotation_editors = []  # 改为列表，支持多个编辑窗口
         self.sticker_windows = []
         self.ocr_engine = OCREngine(settings_manager)
         self.ocr_window = None
+        
+        # 连接主题变化信号
+        if self.signal_handler:
+            self.signal_handler.theme_changed.connect(self.on_theme_changed)
 
     def take_screenshot(self):
         """开始截图"""
@@ -1866,10 +1896,27 @@ class ScreenshotManager:
     def on_cancelled(self):
         """取消截图"""
         pass
+    
+    def on_theme_changed(self, theme):
+        """主题变化时更新所有编辑器窗口"""
+        # 更新所有标注编辑器
+        for editor in self.annotation_editors:
+            try:
+                if hasattr(editor, 'apply_theme'):
+                    editor.apply_theme()
+            except RuntimeError:
+                pass
+        
+        # 更新OCR窗口
+        if self.ocr_window and hasattr(self.ocr_window, 'apply_theme'):
+            try:
+                self.ocr_window.apply_theme()
+            except RuntimeError:
+                pass
 
     def show_annotation_editor(self, image):
         """显示标注编辑器"""
-        editor = AnnotationEditor(image, self.theme_manager)
+        editor = AnnotationEditor(image, self.theme_manager, self.signal_handler)
         
         # 为每个编辑器创建独立的回调
         def on_save(img):
@@ -1935,14 +1982,14 @@ class ScreenshotManager:
     def do_ocr(self, image, editor=None):
         """OCR识别"""
         # 创建OCR结果窗口，设置为模态对话框
-        self.ocr_window = OCRResultWindow(image, self.ocr_engine, self.settings_manager, self.theme_manager, parent=editor)
+        self.ocr_window = OCRResultWindow(image, self.ocr_engine, self.settings_manager, self.theme_manager, self.signal_handler, parent=editor)
         self.ocr_window.setWindowModality(Qt.WindowModality.WindowModal)
         self.ocr_window.show()
 
     def do_ai(self, image, editor=None):
         """问AI"""
         # 创建AI对话框，设置为模态对话框
-        self.ai_window = AIDialog(image, self.settings_manager, self.theme_manager, parent=editor)
+        self.ai_window = AIDialog(image, self.settings_manager, self.theme_manager, self.signal_handler, parent=editor)
         self.ai_window.setWindowModality(Qt.WindowModality.WindowModal)
         self.ai_window.show()
 
@@ -1972,16 +2019,25 @@ class OCRWorker(QThread):
 class OCRResultWindow(QMainWindow):
     """OCR结果显示窗口"""
 
-    def __init__(self, image, ocr_engine, settings_manager=None,theme_manager=None, parent=None):
+    def __init__(self, image, ocr_engine, settings_manager=None,theme_manager=None, signal_handler=None, parent=None):
         super().__init__(parent)
         self.image = image
         self.ocr_engine = ocr_engine
         self.theme_manager = theme_manager
         self.settings_manager = settings_manager
+        self.signal_handler = signal_handler
         self.ocr_worker = None
         self.init_ui()
         self.apply_theme()
         self.process_image()
+        
+        # 连接主题变化信号
+        if self.signal_handler:
+            self.signal_handler.theme_changed.connect(self.on_theme_changed)
+    
+    def on_theme_changed(self, theme):
+        """主题变化时更新窗口"""
+        self.apply_theme()
 
     def init_ui(self):
         self.setWindowTitle("OCR 文字识别")
@@ -2190,15 +2246,24 @@ class OCRResultWindow(QMainWindow):
 class AIDialog(QMainWindow):
     """AI对话框"""
 
-    def __init__(self, image, settings_manager, theme_manager=None, parent=None):
+    def __init__(self, image, settings_manager, theme_manager=None, signal_handler=None, parent=None):
         super().__init__(parent)
         self.image = image
         self.settings_manager = settings_manager
         self.theme_manager = theme_manager
+        self.signal_handler = signal_handler
         self.current_task = None
         self.worker = None
         self.recognized_text = None
         self.init_ui()
+        self.apply_theme()
+        
+        # 连接主题变化信号
+        if self.signal_handler:
+            self.signal_handler.theme_changed.connect(self.on_theme_changed)
+    
+    def on_theme_changed(self, theme):
+        """主题变化时更新窗口"""
         self.apply_theme()
 
     def init_ui(self):

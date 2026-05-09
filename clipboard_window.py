@@ -433,23 +433,24 @@ class ClipboardCardWidget(QWidget):
             try:
                 if label_type == 'time':
                     if self._is_selected:
-                        label.setStyleSheet(f"color: {colors['highlight_text']}; font-size: 10px; font-weight: 500;")
+                        label.setStyleSheet(f"color: {colors['highlight_text']}; font-size: 10px; font-weight: 500;background-color: transparent;")
                     else:
-                        label.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 10px; font-weight: 500;")
+                        label.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 10px; font-weight: 500;background-color: transparent;")
                 elif label_type == 'info':
                     if self._is_selected:
-                        label.setStyleSheet(f"color: {colors['highlight_text']}; font-size: 10px; padding-left: 8px;")
+                        label.setStyleSheet(f"color: {colors['highlight_text']}; font-size: 10px; padding-left: 8px;background-color: transparent;")
                     else:
-                        label.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 10px; padding-left: 8px;")
+                        label.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 10px; padding-left: 8px;background-color: transparent;")
                 elif label_type == 'content':
-                    label.setStyleSheet(f"color: {text_color}; font-size: 12px; line-height: 1.6;")
+                    label.setStyleSheet(f"color: {text_color}; font-size: 12px; line-height: 1.6;background-color: transparent;")
                 elif label_type == 'desc':
                     if self._is_selected:
-                        label.setStyleSheet(f"color: {colors['highlight_text']}; font-size: 12px;")
+                        label.setStyleSheet(f"color: {colors['highlight_text']}; font-size: 12px;background-color: transparent;")
                     else:
-                        label.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 12px;")
+                        label.setStyleSheet(f"color: {colors['text_secondary']}; font-size: 12px;background-color: transparent;")   
             except RuntimeError:
                 pass
+
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -559,6 +560,7 @@ class ClipboardCardWidget(QWidget):
 
         # Action buttons container - hidden by default
         self.action_buttons = QWidget()
+        self.action_buttons.setStyleSheet("background-color: transparent;")
         action_layout = QHBoxLayout(self.action_buttons)
         action_layout.setContentsMargins(0, 0, 0, 0)
         action_layout.setSpacing(4)
@@ -574,13 +576,13 @@ class ClipboardCardWidget(QWidget):
                 font-size: 14px;
             }
             QPushButton:hover {
-                background-color: rgba(0, 0, 0, 0.1);
+                background-color: rgba(0, 0, 0, 0.2);
                 border-radius: 4px;
             }
         """)
         fav_btn.clicked.connect(lambda: self.favorite_toggled.emit(self.item))
         action_layout.addWidget(fav_btn)
-
+        
         # Pin button
         pin_btn = QPushButton("📌" if self.item.pinned else "📍")
         pin_btn.setFixedSize(24, 24)
@@ -592,7 +594,7 @@ class ClipboardCardWidget(QWidget):
                 font-size: 14px;
             }
             QPushButton:hover {
-                background-color: rgba(0, 0, 0, 0.1);
+                background-color: rgba(0, 0, 0, 0.2);
                 border-radius: 4px;
             }
         """)
@@ -610,7 +612,7 @@ class ClipboardCardWidget(QWidget):
                 font-size: 14px;
             }
             QPushButton:hover {
-                background-color: rgba(255, 0, 0, 0.2);
+                background-color: rgba(255, 0, 0, 0.3);
                 border-radius: 4px;
             }
         """)
@@ -884,6 +886,7 @@ class ClipboardWindow(QWidget):
         """)
 
         self.scroll_content = QWidget()
+        self.widgets_to_style.append(('scroll_content', self.scroll_content))
         self.scroll_layout = QVBoxLayout()
         self.scroll_layout.setContentsMargins(0, 0, 0, 0)
         self.scroll_layout.setSpacing(12)
@@ -1720,6 +1723,12 @@ class ClipboardWindow(QWidget):
         except RuntimeError:
             pass
         
+        # 应用滚动内容区域背景色
+        try:
+            self.scroll_content.setStyleSheet(f"background-color: {colors['window']};")
+        except RuntimeError:
+            pass
+        
         # 应用其他控件样式
         valid_widgets = []
         for widget_type, widget in self.widgets_to_style:
@@ -1742,6 +1751,9 @@ class ClipboardWindow(QWidget):
                 elif widget_type == 'filter_button':
                     is_active = widget.isChecked()
                     self.update_filter_button_style(widget, is_active)
+                    valid_widgets.append((widget_type, widget))
+                elif widget_type == 'scroll_content':
+                    widget.setStyleSheet(f"background-color: {colors['window']};")
                     valid_widgets.append((widget_type, widget))
                 elif widget_type == 'pushbutton_action':
                     # 更新动作按钮样式
