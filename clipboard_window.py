@@ -143,13 +143,13 @@ class AIWorker(QThread):
 
             if self.task_type == "explain":
                 if self.content_type == "text":
-                    user_content = f"请详细解释以下文本内容，用简洁清晰的语言阐述其含义。全程只输出无格式纯文本，严禁使用 Markdown、代码块、序号列表、项目符号、加粗、表格、引用等任何排版语法，只用普通文字自然换行。\n\n{self.content}"
+                    user_content = f"请使用简体中文详细解释以下文本内容，用简洁清晰的语言阐述其含义。\n\n{self.content}"
                 elif self.content_type == "image":
                     base64_image = self.encode_image_to_base64(self.content)
                     user_content = [
                         {
                             "type": "text",
-                            "text": "请描述一下这个图片的内容和场景。全程只输出无格式纯文本，严禁使用 Markdown、代码块、序号列表、项目符号、加粗、表格、引用等任何排版语法，只用普通文字自然换行。"
+                            "text": "请使用简体中文描述一下这张图片的内容。"
                         },
                         {
                             "type": "image_url",
@@ -159,7 +159,7 @@ class AIWorker(QThread):
                         }
                     ]
             elif self.task_type == "translate":
-                user_content = f"请将以下文本翻译成中文，保持原意不变。全程只输出无格式纯文本，严禁使用 Markdown、代码块、序号列表、项目符号、加粗、表格、引用等任何排版语法，只用普通文字自然换行。\n\n{self.content}"
+                user_content = f"请将以下文本翻译成简体中文，保持原意不变。\n\n{self.content}"
 
             data = {
                 'model': model,

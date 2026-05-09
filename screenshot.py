@@ -2702,7 +2702,7 @@ class AIWorker(QThread):
                 user_content = [
                     {
                         "type": "text",
-                        "text": "请详细描述这张图片的内容，包括场景、物体、文字等信息。"
+                        "text": "请使用简体中文详细描述这张图片的内容。"
                     },
                     {
                         "type": "image_url",
@@ -2726,7 +2726,7 @@ class AIWorker(QThread):
                     }
                 ]
             elif self.task_type == "translate":
-                user_content = f"请将以下文字翻译成中文，保持原意不变：\n\n{self.recognized_text}"
+                user_content = f"请将以下文字翻译成简体中文，保持原意不变：\n\n{self.recognized_text}"
 
             data = {
                 'model': model,
