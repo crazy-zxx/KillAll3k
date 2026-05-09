@@ -1344,6 +1344,32 @@ class ClipboardWindow(QWidget):
         if isinstance(child, ClipboardCardWidget):
             item = child.item
             menu = QMenu(self)
+            
+            # 应用自定义菜单样式
+            if self.theme_manager:
+                colors = self.theme_manager.get_colors()
+                menu.setStyleSheet(f"""
+                    QMenu {{
+                        background-color: {colors['window']};
+                        border: 1px solid {colors['border']};
+                        border-radius: 6px;
+                        padding: 4px;
+                    }}
+                    QMenu::item {{
+                        padding: 8px 24px 8px 24px;
+                        border-radius: 4px;
+                        color: {colors['window_text']};
+                    }}
+                    QMenu::item:selected {{
+                        background-color: {colors['highlight']};
+                        color: {colors['highlight_text']};
+                    }}
+                    QMenu::separator {{
+                        height: 1px;
+                        background-color: {colors['border']};
+                        margin: 4px 8px 4px 8px;
+                    }}
+                """)
 
             copy_action = menu.addAction("复制")
             copy_action.triggered.connect(lambda: self.clipboard_manager.copy_item(item))
