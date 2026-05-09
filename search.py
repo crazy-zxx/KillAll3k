@@ -1,8 +1,5 @@
 import os
 import sys
-import winreg
-import subprocess
-import time
 
 import keyboard
 from PyQt6.QtCore import QFileInfo, QSize

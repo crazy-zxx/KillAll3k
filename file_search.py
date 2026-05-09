@@ -1,6 +1,7 @@
 import ctypes
 import os
 from typing import List, Dict
+
 from rapidfuzz import fuzz
 
 

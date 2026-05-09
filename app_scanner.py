@@ -1,9 +1,9 @@
 import os
 from typing import List, Dict
 
+from pylnk3 import parse
 from pypinyin import pinyin, Style
 from rapidfuzz import fuzz
-from pylnk3 import parse
 
 
 class AppScanner:

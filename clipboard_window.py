@@ -1,13 +1,15 @@
 import os
-import webbrowser
 import time
+import webbrowser
+
+from PyQt6.QtCore import Qt, pyqtSignal, QMimeData, QTimer, QThread
+from PyQt6.QtGui import QPainter, QBrush, QColor, QPixmap, QDrag, QPen, QCursor, QIcon
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
     QScrollArea, QFrame, QLabel, QCheckBox, QMenu,
     QApplication, QDialog, QTextEdit, QComboBox, QMessageBox
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QMimeData, QTimer, QThread
-from PyQt6.QtGui import QPainter, QBrush, QColor, QPixmap, QDrag, QPen, QCursor, QIcon
+
 from clipboard_manager import ClipboardManager, ClipboardItem
 from screenshot import AnnotationEditor
 
@@ -117,7 +119,6 @@ class AIWorker(QThread):
 
     def encode_image_to_base64(self, pixmap):
         from PyQt6.QtCore import QBuffer
-        import base64
 
         buffer = QBuffer()
         buffer.open(QBuffer.OpenModeFlag.WriteOnly)

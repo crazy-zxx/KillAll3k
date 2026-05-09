@@ -1,9 +1,9 @@
-import sys
 import os
+import sys
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QIcon, QGuiApplication
+from PyQt6.QtWidgets import QApplication
 
 import search
 
