@@ -633,6 +633,7 @@ class PenAnnotation(AnnotationItem):
         pen = QPen(self.color, self.line_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap,
                    Qt.PenJoinStyle.RoundJoin)
         painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.setOpacity(self.opacity)
 
         path = QPainterPath(QPointF(self.points[0]))
@@ -814,6 +815,7 @@ class NumberAnnotation(AnnotationItem):
 
         # 绘制序号
         painter.setPen(QColor(255, 255, 255))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
         # 根据radius调整字体大小
         font_size = max(10, int(self.radius))
         font = QFont("Microsoft YaHei", font_size, QFont.Weight.Bold)
