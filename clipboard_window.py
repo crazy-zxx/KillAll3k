@@ -585,7 +585,7 @@ class ClipboardCardWidget(QWidget):
         action_layout.addWidget(fav_btn)
         
         # Pin button
-        pin_btn = QPushButton("📌" if self.item.pinned else "📍")
+        pin_btn = QPushButton("📍" if self.item.pinned else "📌")
         pin_btn.setFixedSize(24, 24)
         pin_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         pin_btn.setStyleSheet("""
