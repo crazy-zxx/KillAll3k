@@ -518,11 +518,11 @@ class ClipboardCardWidget(QWidget):
         super().leaveEvent(event)
 
     def init_ui(self):
-        self.setMaximumWidth(450)
+        self.setMaximumWidth(400)
 
         layout = QVBoxLayout()
-        layout.setContentsMargins(16, 14, 16, 14)
-        layout.setSpacing(12)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
 
         top_layout = QHBoxLayout()
         left_layout = QHBoxLayout()
@@ -783,7 +783,7 @@ class ClipboardWindow(QWidget):
             Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(500, 600)
+        self.setFixedSize(400, 600)
         self.setAcceptDrops(True)
 
         # 设置窗口图标
@@ -792,15 +792,15 @@ class ClipboardWindow(QWidget):
 
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(8, 8, 8, 8)
-        main_layout.setSpacing(8)
+        main_layout.setSpacing(4)
 
         container = QWidget()
         container.setObjectName("clipboard_container")
         self.container = container
         self.widgets_to_style.append(('container', container))
         container_layout = QVBoxLayout()
-        container_layout.setContentsMargins(12, 12, 12, 12)
-        container_layout.setSpacing(12)
+        container_layout.setContentsMargins(8, 8, 8, 8)
+        container_layout.setSpacing(4)
 
         top_bar_widget = QWidget()
         top_bar_widget.setObjectName("top_bar_widget")
@@ -841,7 +841,7 @@ class ClipboardWindow(QWidget):
 
         self.filter_buttons = {}
         filters = [
-            ("all", "全部", "#3b82f6"),
+            ("all", "📋全部", "#3b82f6"),
             ("favorite", "⭐ 收藏", "#f59e0b"),
             ("text", "📝 文本", "#6366f1"),
             ("image", "🖼️ 图片", "#10b981"),
@@ -890,7 +890,7 @@ class ClipboardWindow(QWidget):
         self.widgets_to_style.append(('scroll_content', self.scroll_content))
         self.scroll_layout = QVBoxLayout()
         self.scroll_layout.setContentsMargins(0, 0, 0, 0)
-        self.scroll_layout.setSpacing(12)
+        self.scroll_layout.setSpacing(2)
         self.scroll_layout.addStretch()
         self.scroll_content.setLayout(self.scroll_layout)
         self.scroll_area.setWidget(self.scroll_content)
@@ -898,7 +898,7 @@ class ClipboardWindow(QWidget):
         container_layout.addWidget(self.scroll_area)
 
         self.bottom_bar = QHBoxLayout()
-        self.bottom_bar.setSpacing(8)
+        self.bottom_bar.setSpacing(4)
 
         self.select_all_btn = QPushButton("全选")
         self.select_all_btn.clicked.connect(self.toggle_select_all)
