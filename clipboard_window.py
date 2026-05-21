@@ -900,16 +900,16 @@ class ClipboardWindow(QWidget):
         self.bottom_bar = QHBoxLayout()
         self.bottom_bar.setSpacing(4)
 
-        self.select_all_btn = QPushButton("全选")
+        self.select_all_btn = QPushButton("全部选中")
         self.select_all_btn.clicked.connect(self.toggle_select_all)
         self.select_all_btn.setStyleSheet("""
             QPushButton {
                 background-color: #6366f1;
                 color: white;
-                padding: 8px 16px;
+                padding: 8px 10px;
                 border: none;
                 border-radius: 6px;
-                font-size: 13px;
+                font-size: 12px;
                 font-weight: bold;
             }
             QPushButton:hover {
@@ -923,10 +923,10 @@ class ClipboardWindow(QWidget):
             QPushButton {
                 background-color: #3b82f6;
                 color: white;
-                padding: 8px 16px;
+                padding: 8px 10px;
                 border: none;
                 border-radius: 6px;
-                font-size: 13px;
+                font-size: 12px;
                 font-weight: bold;
             }
             QPushButton:hover {
@@ -940,10 +940,10 @@ class ClipboardWindow(QWidget):
             QPushButton {
                 background-color: #10b981;
                 color: white;
-                padding: 8px 16px;
+                padding: 8px 10px;
                 border: none;
                 border-radius: 6px;
-                font-size: 13px;
+                font-size: 12px;
                 font-weight: bold;
             }
             QPushButton:hover {
@@ -957,10 +957,10 @@ class ClipboardWindow(QWidget):
             QPushButton {
                 background-color: #f59e0b;
                 color: white;
-                padding: 8px 16px;
+                padding: 8px 10px;
                 border: none;
                 border-radius: 6px;
-                font-size: 13px;
+                font-size: 12px;
                 font-weight: bold;
             }
             QPushButton:hover {
@@ -974,10 +974,10 @@ class ClipboardWindow(QWidget):
             QPushButton {
                 background-color: #ef4444;
                 color: white;
-                padding: 8px 16px;
+                padding: 8px 10px;
                 border: none;
                 border-radius: 6px;
-                font-size: 13px;
+                font-size: 12px;
                 font-weight: bold;
             }
             QPushButton:hover {
@@ -1093,7 +1093,7 @@ class ClipboardWindow(QWidget):
         self.bottom_bar_widget.setVisible(self.is_multi_select)
         self.selected_items = []
         if hasattr(self, 'select_all_btn'):
-            self.select_all_btn.setText("全选")
+            self.select_all_btn.setText("全部选中")
         self.refresh_history()
 
     def toggle_pin_window(self):
@@ -1158,7 +1158,7 @@ class ClipboardWindow(QWidget):
             if len(self.selected_items) == len(history) and len(history) > 0:
                 self.select_all_btn.setText("取消全选")
             else:
-                self.select_all_btn.setText("全选")
+                self.select_all_btn.setText("全部选中")
 
         if not history:
             empty_label = QLabel("暂无剪贴板历史")
@@ -1335,7 +1335,7 @@ class ClipboardWindow(QWidget):
             if len(self.selected_items) == len(history) and len(history) > 0:
                 self.select_all_btn.setText("取消全选")
             else:
-                self.select_all_btn.setText("全选")
+                self.select_all_btn.setText("全部选中")
 
     def contextMenuEvent(self, event):
         child = self.childAt(event.pos())
@@ -1579,7 +1579,7 @@ class ClipboardWindow(QWidget):
         if len(self.selected_items) == len(current_history):
             # 如果已经全选，则取消全选
             self.selected_items = []
-            self.select_all_btn.setText("全选")
+            self.select_all_btn.setText("全部选中")
         else:
             # 否则全选
             self.selected_items = current_history.copy()
@@ -1785,15 +1785,15 @@ class ClipboardWindow(QWidget):
                 elif widget_type == 'pushbutton_action':
                     # 更新动作按钮样式
                     btn_text = widget.text()
-                    if '全选' in btn_text or '取消全选' in btn_text:
+                    if '全部选中' in btn_text or '取消全选' in btn_text:
                         widget.setStyleSheet(f"""
                             QPushButton {{
                                 background-color: #6366f1;
                                 color: white;
-                                padding: 8px 16px;
+                                padding: 8px 10px;
                                 border: none;
                                 border-radius: 6px;
-                                font-size: 13px;
+                                font-size: 12px;
                                 font-weight: bold;
                             }}
                             QPushButton:hover {{
@@ -1805,10 +1805,10 @@ class ClipboardWindow(QWidget):
                             QPushButton {{
                                 background-color: #3b82f6;
                                 color: white;
-                                padding: 8px 16px;
+                                padding: 8px 10px;
                                 border: none;
                                 border-radius: 6px;
-                                font-size: 13px;
+                                font-size: 12px;
                                 font-weight: bold;
                             }}
                             QPushButton:hover {{
@@ -1820,10 +1820,10 @@ class ClipboardWindow(QWidget):
                             QPushButton {{
                                 background-color: #10b981;
                                 color: white;
-                                padding: 8px 16px;
+                                padding: 8px 10px;
                                 border: none;
                                 border-radius: 6px;
-                                font-size: 13px;
+                                font-size: 12px;
                                 font-weight: bold;
                             }}
                             QPushButton:hover {{
@@ -1835,10 +1835,10 @@ class ClipboardWindow(QWidget):
                             QPushButton {{
                                 background-color: #f59e0b;
                                 color: white;
-                                padding: 8px 16px;
+                                padding: 8px 10px;
                                 border: none;
                                 border-radius: 6px;
-                                font-size: 13px;
+                                font-size: 12px;
                                 font-weight: bold;
                             }}
                             QPushButton:hover {{
@@ -1850,10 +1850,10 @@ class ClipboardWindow(QWidget):
                             QPushButton {{
                                 background-color: #ef4444;
                                 color: white;
-                                padding: 8px 16px;
+                                padding: 8px 10px;
                                 border: none;
                                 border-radius: 6px;
-                                font-size: 13px;
+                                font-size: 12px;
                                 font-weight: bold;
                             }}
                             QPushButton:hover {{
